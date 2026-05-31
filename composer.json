@@ -4,12 +4,16 @@
     "license": "BSD-3-Clause",
     "type": "library",
     "keywords": [
+        "criteria",
+        "db",
+        "filter",
+        "pattern",
+        "query",
+        "query-builder",
         "specification",
         "yii",
         "yii3",
-        "yiisoft",
-        "db",
-        "query"
+        "yiisoft"
     ],
     "authors": [
         {
