@@ -1,6 +1,6 @@
 {
     "name": "rasuvaeff/specification",
-    "description": "Specification pattern utilities with Yiisoft DB query integration.",
+    "description": "Type-safe specification pattern for composing Yiisoft DB queries: AND, OR, NOT, comparisons, IN, BETWEEN, LIKE — with SQL injection protection.",
     "license": "BSD-3-Clause",
     "type": "library",
     "keywords": [

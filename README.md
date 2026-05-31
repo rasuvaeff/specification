@@ -10,6 +10,23 @@
 
 Specification pattern for building [Yiisoft DB](https://github.com/yiisoft/db) queries.
 
+```php
+use Rasuvaeff\Specification\SpecificationBuilder;
+use Rasuvaeff\Specification\QueryApplier;
+
+$spec = SpecificationBuilder::create()
+    ->whereEqual('status', 'active')
+    ->whereGreaterThan('age', 18)
+    ->whereIn('role', ['admin', 'moderator'])
+    ->orderBy(['created_at' => 'DESC'])
+    ->limit(20)
+    ->build();
+
+$query = (new \Yiisoft\Db\Query\Query($db))->from('users');
+QueryApplier::apply($spec, $query);
+$rows = $query->all();
+```
+
 > **Using an AI coding assistant?** [`llms.txt`](llms.txt) is a compact,
 > self-contained reference of the whole public API plus copy-paste recipes —
 > drop it into the model's context. Contributors: see [`AGENTS.md`](AGENTS.md).
