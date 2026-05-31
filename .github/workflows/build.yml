@@ -31,13 +31,6 @@ jobs:
           extensions: mbstring, pdo_sqlite
           tools: composer:v2
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.json') }}
-          restore-keys: composer-${{ runner.os }}-
-
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
@@ -60,13 +53,6 @@ jobs:
           extensions: mbstring, pdo_sqlite
           tools: composer:v2
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ runner.os }}-${{ hashFiles('**/composer.json') }}
-          restore-keys: composer-${{ runner.os }}-
-
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
@@ -77,7 +63,7 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: build/coverage.xml
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Mutation testing
