@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<psalm errorLevel="1" resolveFromConfigFile="true">
+    <projectFiles>
+        <directory name="src"/>
+        <directory name="tests"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+    <!--
+        These two are suppressed globally (not via per-line @psalm-suppress) because
+        yiisoft/db's query API returns broad `array<array-key, mixed>` shapes: reading
+        params/where back yields `mixed`, which makes MixedAssignment and
+        RiskyTruthyFalsyComparison unavoidable noise at errorLevel=1 without changing
+        the library's correct behavior.
+    -->
+    <issueHandlers>
+        <MixedAssignment errorLevel="suppress"/>
+        <RiskyTruthyFalsyComparison errorLevel="suppress"/>
+    </issueHandlers>
+    <plugins>
+        <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+    </plugins>
+</psalm>

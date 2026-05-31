@@ -1,0 +1,114 @@
+# specification
+
+> PHP 8.3+ Specification pattern for building yiisoft/db queries. Compose
+> immutable condition objects, then apply them to a Query via a visitor.
+> Composer: `rasuvaeff/specification`. Namespace: `Rasuvaeff\Specification\`.
+> Self-contained reference for LLMs — enough to USE the package correctly.
+
+## Install
+
+```bash
+composer require rasuvaeff/specification   # needs yiisoft/db ^2.0.1
+```
+
+## Rules that prevent bugs (read first)
+
+- VALUES are bound as parameters by yiisoft/db — safe against injection.
+- COLUMN NAMES are NOT validated; pass only TRUSTED names (hard-coded), never
+  raw user input.
+- `RawSpecification` is a raw escape hatch — the condition string is NOT escaped.
+  Put user values only in its `$params` (placeholders).
+- `CompositeSpecification` composes with AND. For OR use `OrSpecification` or
+  `SpecificationBuilder::orWhere()`.
+- `ilike`/`not ilike` are PostgreSQL-specific.
+
+## Apply to a query
+
+```php
+use Rasuvaeff\Specification\{SpecificationBuilder, QueryApplier};
+use Yiisoft\Db\Query\Query;
+
+$spec = SpecificationBuilder::create()
+    ->whereEqual('status', 'active')
+    ->whereGreaterThanOrEqual('price', 20)
+    ->build();                 // returns CompositeSpecification
+
+$query = (new Query($db))->from('items');   // $db: yiisoft/db ConnectionInterface
+QueryApplier::apply($spec, $query);         // mutates $query in place
+$rows = $query->all();
+```
+
+## SpecificationBuilder (fluent, immutable; AND by default)
+
+```
+create(): self
+where(col, val, op='='): self
+whereEqual / whereNotEqual (col, val)
+whereGreaterThan / whereGreaterThanOrEqual / whereLessThan / whereLessThanOrEqual (col, val)
+whereIn / whereNotIn (col, array)
+whereLike / whereNotLike (col, pattern)
+whereBetween / whereNotBetween (col, from, to)
+whereIlike / whereNotIlike (col, pattern)
+whereStartsWith(col, prefix) / whereEndsWith(col, suffix) / whereContains(col, substring)
+whereNull / whereNotNull (col)
+orWhere(callable(SpecificationBuilder): mixed): self   // (current) OR (callback)
+notWhere(callable(SpecificationBuilder): mixed): self  // AND NOT (callback)
+orderBy(array<col,dir>): self
+limit(int): self
+offset(int): self
+build(): CompositeSpecification
+```
+
+```php
+// (status = 'active') OR (price >= 50)
+SpecificationBuilder::create()
+    ->whereEqual('status','active')
+    ->orWhere(fn (SpecificationBuilder $b) => $b->whereGreaterThanOrEqual('price', 50))
+    ->build();
+
+// NOT (status = 'active')
+SpecificationBuilder::create()
+    ->notWhere(fn (SpecificationBuilder $b) => $b->whereEqual('status','active'))
+    ->build();
+```
+
+## Specifications (compose directly)
+
+```php
+use Rasuvaeff\Specification\{CompositeSpecification, ComparisonSpecification,
+    OrSpecification, NotSpecification, RawSpecification};
+
+CompositeSpecification::create()                 // AND container
+    ->withComparison('status','active')          // (col, value, operator='=')
+    ->withComparison('age', 18, '>')
+    ->withOrCondition(['status'=>'active','type'=>'pending'])  // OR from array
+    ->withOrderBy(['created_at' => 'DESC'])      // array<col,dir>
+    ->withLimit(20)
+    ->withOffset(40)                             // LIMIT 20 OFFSET 40
+    ->withSpecification($otherSpec)              // append any Specification (AND)
+    ->withNot($spec)                             // append NOT $spec
+    ->withRaw('price > :min', ['min' => 30]);    // raw SQL (trusted condition)
+
+OrSpecification::create($specA, $specB, ...);    // OR of specs (isolated params)
+new NotSpecification($spec);
+new RawSpecification('price > :min', ['min' => 30]);  // value via params only
+new OffsetSpecification(40);                     // standalone offset
+```
+
+ComparisonSpecification static factories:
+```
+equal, notEqual, greaterThan, greaterThanOrEqual, lessThan, lessThanOrEqual,
+like, notLike, ilike, notIlike, startsWith, endsWith, contains,
+in, notIn, between(col,from,to), notBetween(col,from,to), isNull, isNotNull
+```
+Valid operators: `= != <> > >= < <=  like not like ilike not ilike  in not in
+between not between  is is not`. Validation: NULL only with `= != <> is is not`;
+`in/not in/between/not between` require array (`between` exactly two); LIKE ops
+require string. `DateTimeInterface` values are normalized to `Y-m-d H:i:s`.
+
+## Custom traversal
+
+Implement `SpecificationVisitor<T>` (visitComparison/visitComposite/visitNot/
+visitOr/visitOrCondition/visitRaw/visitOrderBy/visitLimit/visitOffset) and call
+`$spec->accept($visitor)`. `QueryBuildingVisitor` is the built-in one used by
+`QueryApplier`.
