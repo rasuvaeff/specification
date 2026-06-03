@@ -6,6 +6,7 @@
 [![Static analysis](https://github.com/rasuvaeff/specification/actions/workflows/static-analysis.yml/badge.svg)](https://github.com/rasuvaeff/specification/actions/workflows/static-analysis.yml)
 [![Coverage](https://codecov.io/gh/rasuvaeff/specification/branch/master/graph/badge.svg)](https://codecov.io/gh/rasuvaeff/specification)
 [![Psalm level](https://img.shields.io/badge/psalm-level_1-blue.svg)](https://github.com/rasuvaeff/specification/actions/workflows/static-analysis.yml)
+[![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/specification/php)](https://packagist.org/packages/rasuvaeff/specification)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE.md)
 
 Specification pattern for building [Yiisoft DB](https://github.com/yiisoft/db) queries.
