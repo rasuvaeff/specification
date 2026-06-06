@@ -20,7 +20,7 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
     #[\Override]
     public function visitComparison(ComparisonSpecification $specification): void
     {
-        $operator = strtolower(string: $specification->getOperator());
+        $operator = mb_strtolower(string: $specification->getOperator());
 
         switch ($operator) {
             case 'between':

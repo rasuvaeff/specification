@@ -27,7 +27,7 @@ final readonly class ComparisonSpecification implements Specification
         private string|int|float|bool|array|DateTimeInterface|null $value,
         string $operator = '=',
     ) {
-        $this->operator = strtolower(string: $operator);
+        $this->operator = mb_strtolower(string: $operator);
         $this->validateOperator();
         $this->validateValue();
     }

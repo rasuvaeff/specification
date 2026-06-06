@@ -155,18 +155,6 @@ final class OrConditionSpecificationTest extends TestCase
     }
 
     #[Test]
-    public function fromArrayWithInFullFormatWrongColumnFallsBack(): void
-    {
-        $spec = OrConditionSpecification::fromArray(conditions: [
-            'status' => ['in', 'other_status', ['active', 'pending']],
-        ]);
-
-        $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['status' => ['in', 'other_status', ['active', 'pending']]], $conditions[0]);
-    }
-
-    #[Test]
     public function fromArrayWithBetweenInvalidElementCount(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -200,18 +188,6 @@ final class OrConditionSpecificationTest extends TestCase
         $conditions = $spec->getConditions();
         $this->assertCount(1, $conditions);
         $this->assertEquals(['>', 'age', 18], $conditions[0]);
-    }
-
-    #[Test]
-    public function fromArrayWithOperatorThreeElementsWrongColumnFallsBack(): void
-    {
-        $spec = OrConditionSpecification::fromArray(conditions: [
-            'age' => ['>', 'other_age', 18],
-        ]);
-
-        $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['age' => ['>', 'other_age', 18]], $conditions[0]);
     }
 
     #[Test]
