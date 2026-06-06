@@ -528,4 +528,112 @@ final class QueryBuildingVisitorTest extends TestCase
         $spec = new OrderBySpecification(columns: ['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
         $this->visitor->visitOrderBy(specification: $spec);
     }
+
+    #[Test]
+    public function visitLimitAppliesLimitToQuery(): void
+    {
+        $query = $this->createQuery();
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitLimit(specification: new \Rasuvaeff\Specification\LimitSpecification(limit: 42));
+
+        $this->assertSame(42, $query->getLimit());
+    }
+
+    #[Test]
+    public function visitOffsetAppliesOffsetToQuery(): void
+    {
+        $query = $this->createQuery();
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitOffset(specification: new \Rasuvaeff\Specification\OffsetSpecification(offset: 10));
+
+        $this->assertSame(10, $query->getOffset());
+    }
+
+    #[Test]
+    public function visitOrWithSingleConditionFlattensToAndWhere(): void
+    {
+        $query = $this->createQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+
+        $visitor->visitOr(specification: OrSpecification::create(
+            new ComparisonSpecification(column: 'status', value: 'active'),
+        ));
+
+        $where = $query->getWhere();
+        $this->assertNotNull($where);
+        $this->assertSame(['=', 'status', 'active'], $where);
+    }
+
+    #[Test]
+    public function normalizePlaceholderAddsColonPrefix(): void
+    {
+        $query = $this->createQuery();
+        $query->where(condition: ['a' => 1], params: [':value' => 1]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitOr(specification: OrSpecification::create(
+            new RawSpecification(condition: 'b = :value', params: ['value' => 2]),
+        ));
+
+        $params = $query->getParams();
+        $this->assertArrayHasKey(':value', $params);
+        $this->assertSame(1, $params[':value']);
+        $this->assertArrayHasKey(':value_0', $params);
+        $this->assertSame(2, $params[':value_0']);
+    }
+
+    #[Test]
+    public function replacePlaceholdersInArrayCondition(): void
+    {
+        $query = $this->createQuery();
+        $query->where(condition: ['p' => 1], params: [':p' => 1]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitNot(specification: new NotSpecification(
+            specification: new RawSpecification(
+                condition: ['and', 'x = :p', 'y = :p'],
+                params: [':p' => 2],
+            ),
+        ));
+
+        $where = $query->getWhere();
+        $this->assertSame(
+            ['and', ['p' => 1], ['not', ['and', 'x = :p_0', 'y = :p_0']]],
+            $where,
+        );
+    }
+
+    #[Test]
+    public function visitOrSkipsEmptyAndProcessesRemaining(): void
+    {
+        $query = $this->createQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+
+        $visitor->visitOr(specification: new OrSpecification(specifications: [
+            new CompositeSpecification(specifications: []),
+            new ComparisonSpecification(column: 'status', value: 'active'),
+        ]));
+
+        $this->assertSame(['=', 'status', 'active'], $query->getWhere());
+    }
+
+    #[Test]
+    public function orWherePreservesOriginalBuilderState(): void
+    {
+        $builder = SpecificationBuilder::create()
+            ->whereEqual(column: 'status', value: 'active');
+
+        $modified = $builder->orWhere(callback: function (SpecificationBuilder $b): void {
+            $b->whereEqual(column: 'type', value: 'email');
+        });
+
+        $originalSpecs = $builder->build()->getSpecifications();
+        $this->assertCount(1, $originalSpecs);
+
+        $modifiedSpecs = $modified->build()->getSpecifications();
+        $this->assertCount(1, $modifiedSpecs);
+        $this->assertInstanceOf(OrSpecification::class, $modifiedSpecs[0]);
+    }
 }
