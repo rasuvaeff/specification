@@ -17,6 +17,9 @@
     <issueHandlers>
         <MixedAssignment errorLevel="suppress"/>
         <RiskyTruthyFalsyComparison errorLevel="suppress"/>
+        <PossiblyUnusedMethod errorLevel="suppress">
+            <directory name="tests"/>
+        </PossiblyUnusedMethod>
     </issueHandlers>
     <plugins>
         <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
