@@ -1,6 +1,6 @@
 {
     "name": "rasuvaeff/specification",
-    "description": "Type-safe specification pattern for composing Yiisoft DB queries: AND, OR, NOT, comparisons, IN, BETWEEN, LIKE — with SQL injection protection.",
+    "description": "Type-safe specification pattern for composing Yiisoft DB queries: AND, OR, NOT, comparisons, IN, BETWEEN, LIKE \u2014 with SQL injection protection.",
     "license": "BSD-3-Clause",
     "type": "library",
     "keywords": [
@@ -61,11 +61,11 @@
             "ergebnis/composer-normalize": true,
             "infection/extension-installer": true
         },
-        "sort-packages": true,
         "platform": {
             "ext-bcmath": "1.0.0",
             "ext-intl": "1.0.0"
-        }
+        },
+        "sort-packages": true
     },
     "scripts": {
         "bc-check": "roave-backward-compatibility-check",
