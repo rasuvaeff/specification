@@ -224,6 +224,21 @@ composer install && php examples/builder.php
   a value, so a plain list (`'name' => ['a', 'b']`) becomes an `IN` condition. The
   operator is matched case-insensitively.
 
+## Development
+
+```bash
+make install
+make build
+make cs-fix
+make test
+make test-coverage
+make mutation
+make release-check
+```
+
+`make test-coverage` and `make mutation` bootstrap `pcov` inside the
+`composer:2` container because the base image has no coverage driver.
+
 ## License
 
 BSD-3-Clause.

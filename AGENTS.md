@@ -29,23 +29,31 @@ Public API in `src/` (`Rasuvaeff\Specification\`): `SpecificationBuilder`,
 
 ## Commands
 
-No PHP/Composer on the host — run in Docker via the `composer:2` image. From the
-package root:
+No PHP/Composer on the host — run in Docker via the `composer:2` image.
 
 ```bash
-docker run --rm -v "$PWD":/app -w /app composer:2 composer build     # full gate
-docker run --rm -v "$PWD":/app -w /app composer:2 composer cs:fix    # auto-fix style
+docker run --rm -v "$PWD":/app -w /app composer:2 composer build
+docker run --rm -v "$PWD":/app -w /app composer:2 composer cs:fix
 docker run --rm -v "$PWD":/app -w /app composer:2 composer psalm
 docker run --rm -v "$PWD":/app -w /app composer:2 composer test
-
-# after changing composer.json (deps/metadata): refresh lock + re-normalize
-docker run --rm -v "$PWD":/app -w /app composer:2 sh -c \
-  'git config --global --add safe.directory /app; composer update -q; composer normalize'
+docker run --rm -v "$PWD":/app -w /app composer:2 composer release-check
 ```
 
-Integration tests need no external DB — they use in-memory SQLite (the
-`ext-pdo_sqlite` + `yiisoft/db-sqlite` dev deps), so `composer build` covers them.
+Or with Make:
+
+```bash
+make build
+make cs-fix
+make psalm
+make test
+make test-coverage
+make mutation
+make release-check
+```
+
 `composer.lock` is gitignored (library).
+`make test-coverage` and `make mutation` bootstrap `pcov` inside the
+`composer:2` container because the base image has no coverage driver.
 
 ## Invariants & gotchas
 
@@ -63,8 +71,12 @@ Integration tests need no external DB — they use in-memory SQLite (the
   `#[\Override]` on visitor/interface implementations, explicit types. Comments
   in English.
 
+- `examples/` is part of the public contract: keep scripts runnable and update
+  `examples/README.md` when example usage changes.
+
 ## When you finish
 
 - Update `README.md` (and `examples/` if usage changed); update `CHANGELOG.md`
   when releasing.
-- Re-run `composer build` and paste the output.
+- Re-run `composer build`; if the change affects the public API or release
+  process, also run `make release-check`. Paste the output.
