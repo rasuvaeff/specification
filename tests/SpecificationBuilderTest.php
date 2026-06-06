@@ -416,12 +416,21 @@ final class SpecificationBuilderTest extends TestCase
         $original = SpecificationBuilder::create()
             ->whereEqual(column: 'status', value: 'active');
 
-        $original->orWhere(callback: function (SpecificationBuilder $builder): void {
+        $originalSpecs = $original->build()->getSpecifications();
+        $this->assertCount(1, $originalSpecs);
+
+        $modified = $original->orWhere(callback: function (SpecificationBuilder $builder): void {
             $builder->whereEqual(column: 'type', value: 'email');
         });
 
-        $originalSpecs = $original->build()->getSpecifications();
-        $this->assertCount(1, $originalSpecs);
+        $originalSpecsAfter = $original->build()->getSpecifications();
+        $this->assertCount(1, $originalSpecsAfter);
+        $this->assertInstanceOf(ComparisonSpecification::class, $originalSpecsAfter[0]);
+        $this->assertSame('active', $originalSpecsAfter[0]->getValue());
+
+        $modifiedSpecs = $modified->build()->getSpecifications();
+        $this->assertInstanceOf(OrSpecification::class, $modifiedSpecs[0]);
+        $this->assertCount(2, $modifiedSpecs[0]->getSpecifications());
     }
 
     #[Test]

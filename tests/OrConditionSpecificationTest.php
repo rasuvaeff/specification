@@ -293,4 +293,90 @@ final class OrConditionSpecificationTest extends TestCase
         $this->assertEquals(['in', 'type', ['a', 'b']], $conditions[1]);
         $this->assertEquals(['>', 'score', 10], $conditions[2]);
     }
+
+    #[Test]
+    public function fromArrayWithNotInCanonicalFormatDistinctFromDefault(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'status' => ['not in', 'status', ['x', 'y']],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertSame(['not in', 'status', ['x', 'y']], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithNotInCanonicalNonArrayValuesFallsBack(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'status' => ['not in', 'status', 'not_an_array'],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertSame(['status' => ['not in', 'status', 'not_an_array']], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithNotBetweenCanonicalFormatDistinctFromDefault(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'age' => ['not between', 'age', 18, 65],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertSame(['not between', 'age', 18, 65], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithIntegerFirstElementNotRecognized(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'col' => [0, 'val'],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertEquals(['col' => [0, 'val']], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithBetweenWrongColumnInCanonical(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'age' => ['between', 'other_col', 1, 10],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertEquals(['age' => ['between', 'other_col', 1, 10]], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithDefaultOperatorCanonicalWrongColumn(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'age' => ['>', 'other_col', 18],
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(1, $conditions);
+        $this->assertEquals(['age' => ['>', 'other_col', 18]], $conditions[0]);
+    }
+
+    #[Test]
+    public function fromArrayWithNonArrayValueTreatedAsEquality(): void
+    {
+        $spec = OrConditionSpecification::fromArray(conditions: [
+            'status' => 'active',
+            'count' => 5,
+        ]);
+
+        $conditions = $spec->getConditions();
+        $this->assertCount(2, $conditions);
+        $this->assertEquals(['status' => 'active'], $conditions[0]);
+        $this->assertEquals(['count' => 5], $conditions[1]);
+    }
 }
