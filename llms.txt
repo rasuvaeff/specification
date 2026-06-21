@@ -106,6 +106,13 @@ between not between  is is not`. Validation: NULL only with `= != <> is is not`;
 `in/not in/between/not between` require array (`between` exactly two); LIKE ops
 require string. `DateTimeInterface` values are normalized to `Y-m-d H:i:s`.
 
+## Performance
+
+`SpecificationBuilder` clones itself on every step (immutable). Overhead: ~3.3µs
+for a 7-step chain vs ~2.4µs direct; `orWhere()` ~2.8µs vs ~1.4µs direct.
+Negligible for web requests (DB query >> builder cost). For hot batch loops,
+use `CompositeSpecification` / `OrSpecification::create()` directly.
+
 ## Custom traversal
 
 Implement `SpecificationVisitor<T>` (visitComparison/visitComposite/visitNot/
