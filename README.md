@@ -211,6 +211,37 @@ composer install && php examples/builder.php
   escaped — never build it from untrusted input. Pass user values only through
   the `$params` map (placeholders): `new RawSpecification('age > :age', ['age' => $value])`.
 
+## Performance
+
+`SpecificationBuilder` is immutable — each `where*()`, `limit()`, and `offset()` call
+clones the builder before returning. This is safe and predictable but carries a small
+overhead (~3.3µs for a 7-step chain, vs ~2.4µs for direct `CompositeSpecification`
+composition). `orWhere()` additionally allocates a temporary builder and invokes a
+closure (~2.8µs vs ~1.4µs for direct `OrSpecification::create()`).
+
+For most web request workloads (1–5 specs per request, DB queries taking 1–100ms)
+this overhead is negligible. For **high-throughput batch processing** where specs are
+built in a tight loop, prefer the direct `CompositeSpecification` API:
+
+```php
+// ~26% faster than SpecificationBuilder for a 7-condition chain
+$spec = CompositeSpecification::create()
+    ->withComparison('status', 'active')
+    ->withComparison('age', 18, '>')
+    ->withComparison('role', ['admin', 'editor'], 'in')
+    ->withLimit(100);
+
+// ~48% faster than orWhere() for OR composition
+$spec = CompositeSpecification::create()
+    ->withSpecification(OrSpecification::create(
+        CompositeSpecification::create()->withComparison('status', 'active'),
+        CompositeSpecification::create()->withComparison('status', 'pending'),
+    ));
+```
+
+Benchmarks live in `benchmarks/` and run via `composer bench` (requires
+[testo/bench](https://github.com/php-testo/testo)).
+
 ## Notes
 
 - `ilike` / `not ilike` are PostgreSQL-specific; other drivers (e.g. MySQL) do not
