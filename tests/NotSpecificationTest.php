@@ -4,58 +4,51 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\NotSpecification;
-use Rasuvaeff\Specification\Specification;
-use Rasuvaeff\Specification\SpecificationVisitor;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(NotSpecification::class)]
-final class NotSpecificationTest extends TestCase
+#[Test]
+#[Covers(NotSpecification::class)]
+final class NotSpecificationTest
 {
-    #[Test]
     public function constructorAndGetter(): void
     {
-        $innerSpec = $this->createMock(Specification::class);
-        $spec = new NotSpecification(specification: $innerSpec);
+        $inner = new FakeSpecification();
+        $spec = new NotSpecification(specification: $inner);
 
-        $this->assertSame($innerSpec, $spec->getSpecification());
+        Assert::same($spec->getSpecification(), $inner);
     }
 
-    #[Test]
     public function createFactoryMethod(): void
     {
-        $innerSpec = $this->createMock(Specification::class);
-        $spec = NotSpecification::create(specification: $innerSpec);
+        $inner = new FakeSpecification();
+        $spec = NotSpecification::create(specification: $inner);
 
-        $this->assertInstanceOf(NotSpecification::class, $spec);
-        $this->assertSame($innerSpec, $spec->getSpecification());
+        Assert::instanceOf($spec, NotSpecification::class);
+        Assert::same($spec->getSpecification(), $inner);
     }
 
-    #[Test]
     public function acceptsVisitor(): void
     {
-        $innerSpec = $this->createMock(Specification::class);
-        $spec = new NotSpecification(specification: $innerSpec);
-        $visitor = $this->createMock(SpecificationVisitor::class);
-
-        $visitor->expects($this->once())
-            ->method('visitNot')
-            ->with($spec)
-            ->willReturn('result');
+        $inner = new FakeSpecification();
+        $spec = new NotSpecification(specification: $inner);
+        $visitor = new FakeVisitor(returnValue: 'result');
 
         $result = $spec->accept(visitor: $visitor);
-        $this->assertSame('result', $result);
+
+        Assert::same($visitor->lastMethod, 'visitNot');
+        Assert::same($visitor->lastArg, $spec);
+        Assert::same($result, 'result');
     }
 
-    #[Test]
     public function withComparisonSpecification(): void
     {
-        $innerSpec = new ComparisonSpecification(column: 'status', value: 'active');
-        $spec = new NotSpecification(specification: $innerSpec);
+        $inner = new ComparisonSpecification(column: 'status', value: 'active');
+        $spec = new NotSpecification(specification: $inner);
 
-        $this->assertSame($innerSpec, $spec->getSpecification());
+        Assert::same($spec->getSpecification(), $inner);
     }
 }

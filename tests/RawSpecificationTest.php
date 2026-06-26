@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\RawSpecification;
-use Rasuvaeff\Specification\SpecificationVisitor;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(RawSpecification::class)]
-final class RawSpecificationTest extends TestCase
+#[Test]
+#[Covers(RawSpecification::class)]
+final class RawSpecificationTest
 {
-    #[Test]
     public function getCondition(): void
     {
         $condition = 'status = :status';
@@ -22,34 +20,29 @@ final class RawSpecificationTest extends TestCase
 
         $spec = new RawSpecification(condition: $condition, params: $params);
 
-        $this->assertSame($condition, $spec->getCondition());
-        $this->assertSame($params, $spec->getParams());
+        Assert::same($spec->getCondition(), $condition);
+        Assert::same($spec->getParams(), $params);
     }
 
-    #[Test]
     public function getConditionWithArray(): void
     {
         $condition = ['or', ['a' => 1], ['b' => 2]];
 
         $spec = new RawSpecification(condition: $condition);
 
-        $this->assertSame($condition, $spec->getCondition());
-        $this->assertEmpty($spec->getParams());
+        Assert::same($spec->getCondition(), $condition);
+        Assert::blank($spec->getParams());
     }
 
-    #[Test]
     public function acceptReturnsVisitorResult(): void
     {
         $spec = new RawSpecification(condition: 'x = 1');
-
-        /** @var MockObject&SpecificationVisitor<string> $visitor */
-        $visitor = $this->createMock(SpecificationVisitor::class);
-        $visitor->expects($this->once())
-            ->method('visitRaw')
-            ->with($spec)
-            ->willReturn('ok');
+        $visitor = new FakeVisitor(returnValue: 'ok');
 
         $result = $spec->accept(visitor: $visitor);
-        $this->assertSame('ok', $result);
+
+        Assert::same($visitor->lastMethod, 'visitRaw');
+        Assert::same($visitor->lastArg, $spec);
+        Assert::same($result, 'ok');
     }
 }

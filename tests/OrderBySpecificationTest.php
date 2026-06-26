@@ -4,61 +4,56 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\OrderBySpecification;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Test;
 
-#[CoversClass(OrderBySpecification::class)]
-final class OrderBySpecificationTest extends TestCase
+#[Test]
+#[Covers(OrderBySpecification::class)]
+final class OrderBySpecificationTest
 {
-    #[Test]
     public function constructorAndFirstValues(): void
     {
         $spec = new OrderBySpecification(columns: ['created_at' => 'DESC']);
 
-        $this->assertSame('created_at', $spec->getFirstColumn());
-        $this->assertSame('DESC', $spec->getFirstDirection());
-        $this->assertSame(['created_at' => 'DESC'], $spec->getColumns());
+        Assert::same($spec->getFirstColumn(), 'created_at');
+        Assert::same($spec->getFirstDirection(), 'DESC');
+        Assert::same($spec->getColumns(), ['created_at' => 'DESC']);
     }
 
-    #[Test]
     public function constructorRejectsEmptyColumns(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Order by specification requires at least one column');
+        Expect::exception(\InvalidArgumentException::class)->withMessageContaining('Order by specification requires at least one column');
 
         new OrderBySpecification(columns: []);
     }
 
-    #[Test]
     public function singleColumn(): void
     {
         $spec = new OrderBySpecification(columns: ['name' => 'ASC']);
 
-        $this->assertSame('name', $spec->getFirstColumn());
-        $this->assertSame('ASC', $spec->getFirstDirection());
-        $this->assertSame(['name' => 'ASC'], $spec->getColumns());
+        Assert::same($spec->getFirstColumn(), 'name');
+        Assert::same($spec->getFirstDirection(), 'ASC');
+        Assert::same($spec->getColumns(), ['name' => 'ASC']);
     }
 
-    #[Test]
     public function multipleColumns(): void
     {
         $spec = new OrderBySpecification(columns: ['sort' => 'DESC', 'name' => 'ASC']);
 
-        $this->assertSame('sort', $spec->getFirstColumn());
-        $this->assertSame('DESC', $spec->getFirstDirection());
-        $this->assertSame(['sort' => 'DESC', 'name' => 'ASC'], $spec->getColumns());
+        Assert::same($spec->getFirstColumn(), 'sort');
+        Assert::same($spec->getFirstDirection(), 'DESC');
+        Assert::same($spec->getColumns(), ['sort' => 'DESC', 'name' => 'ASC']);
     }
 
-    #[Test]
     public function threeColumns(): void
     {
         $spec = new OrderBySpecification(columns: ['priority' => 'DESC', 'sort' => 'ASC', 'name' => 'ASC']);
 
-        $this->assertSame('priority', $spec->getFirstColumn());
-        $this->assertSame('DESC', $spec->getFirstDirection());
-        $this->assertSame(['priority' => 'DESC', 'sort' => 'ASC', 'name' => 'ASC'], $spec->getColumns());
+        Assert::same($spec->getFirstColumn(), 'priority');
+        Assert::same($spec->getFirstDirection(), 'DESC');
+        Assert::same($spec->getColumns(), ['priority' => 'DESC', 'sort' => 'ASC', 'name' => 'ASC']);
     }
 }

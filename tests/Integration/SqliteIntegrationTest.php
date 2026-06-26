@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests\Integration;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\QueryApplier;
 use Rasuvaeff\Specification\SpecificationBuilder;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Cache\ArrayCache;
 use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Query\Query;
@@ -24,13 +25,14 @@ use Yiisoft\Db\Sqlite\Driver;
  * these verify the generated SQL is correct and — critically — that parameter
  * placeholders in OR/NOT subqueries do not collide.
  */
+#[Test]
 #[CoversNothing]
-final class SqliteIntegrationTest extends TestCase
+final class SqliteIntegrationTest
 {
     private Connection $db;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $this->db = new Connection(new Driver('sqlite::memory:'), new SchemaCache(new ArrayCache()));
 
@@ -71,32 +73,28 @@ final class SqliteIntegrationTest extends TestCase
         return (int) $row['id'];
     }
 
-    #[Test]
     public function simpleEquals(): void
     {
         $spec = SpecificationBuilder::create()->whereEqual(column: 'status', value: 'active')->build();
 
-        $this->assertSame([1, 2, 4], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2, 4]);
     }
 
-    #[Test]
     public function inAndBetween(): void
     {
-        $this->assertSame([1, 4], $this->ids(SpecificationBuilder::create()->whereIn(column: 'price', values: [10, 40])->build()));
-        $this->assertSame([2, 3, 4], $this->ids(SpecificationBuilder::create()->whereBetween(column: 'price', from: 20, to: 40)->build()));
+        Assert::same($this->ids(SpecificationBuilder::create()->whereIn(column: 'price', values: [10, 40])->build()), [1, 4]);
+        Assert::same($this->ids(SpecificationBuilder::create()->whereBetween(column: 'price', from: 20, to: 40)->build()), [2, 3, 4]);
     }
 
-    #[Test]
     public function notNegatesCondition(): void
     {
         $spec = SpecificationBuilder::create()->notWhere(
             static fn(SpecificationBuilder $b): SpecificationBuilder => $b->whereEqual(column: 'status', value: 'active'),
         )->build();
 
-        $this->assertSame([3, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [3, 5]);
     }
 
-    #[Test]
     public function orBranchesIsolateParameters(): void
     {
         $spec = CompositeSpecification::create()->withSpecification(
@@ -106,10 +104,9 @@ final class SqliteIntegrationTest extends TestCase
             ),
         );
 
-        $this->assertSame([2, 3, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [2, 3, 5]);
     }
 
-    #[Test]
     public function orWhereBuilderKeepsBothSides(): void
     {
         $spec = SpecificationBuilder::create()
@@ -117,10 +114,9 @@ final class SqliteIntegrationTest extends TestCase
             ->orWhere(static fn(SpecificationBuilder $b): SpecificationBuilder => $b->whereGreaterThanOrEqual(column: 'price', value: 50))
             ->build();
 
-        $this->assertSame([1, 2, 4, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2, 4, 5]);
     }
 
-    #[Test]
     public function andCombinedWithOrManyParameters(): void
     {
         $spec = SpecificationBuilder::create()
@@ -133,10 +129,9 @@ final class SqliteIntegrationTest extends TestCase
                 ),
             );
 
-        $this->assertSame([2, 3, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [2, 3, 5]);
     }
 
-    #[Test]
     public function orderByAndLimit(): void
     {
         $spec = CompositeSpecification::create()
@@ -148,10 +143,9 @@ final class SqliteIntegrationTest extends TestCase
 
         $ids = array_map($this->rowId(...), $query->all());
 
-        $this->assertSame([5, 4], $ids);
+        Assert::same($ids, [5, 4]);
     }
 
-    #[Test]
     public function orderByLimitOffset(): void
     {
         $spec = CompositeSpecification::create()
@@ -164,59 +158,53 @@ final class SqliteIntegrationTest extends TestCase
 
         $ids = array_map($this->rowId(...), $query->all());
 
-        $this->assertSame([3, 4], $ids);
+        Assert::same($ids, [3, 4]);
     }
 
-    #[Test]
     public function rawCondition(): void
     {
         $spec = CompositeSpecification::create()
             ->withRaw(condition: 'price > :min', params: ['min' => 30]);
 
-        $this->assertSame([4, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [4, 5]);
     }
 
-    #[Test]
     public function notBetween(): void
     {
         $spec = SpecificationBuilder::create()
             ->whereNotBetween(column: 'price', from: 20, to: 40)
             ->build();
 
-        $this->assertSame([1, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 5]);
     }
 
-    #[Test]
     public function notIn(): void
     {
         $spec = SpecificationBuilder::create()
             ->whereNotIn(column: 'status', values: ['active'])
             ->build();
 
-        $this->assertSame([3, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [3, 5]);
     }
 
-    #[Test]
     public function whereNull(): void
     {
         $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', NULL, 60, '2024-06-01')")->execute();
 
         $spec = SpecificationBuilder::create()->whereNull(column: 'status')->build();
 
-        $this->assertSame([6], $this->ids($spec));
+        Assert::same($this->ids($spec), [6]);
     }
 
-    #[Test]
     public function whereNotNull(): void
     {
         $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', NULL, 60, '2024-06-01')")->execute();
 
         $spec = SpecificationBuilder::create()->whereNotNull(column: 'status')->build();
 
-        $this->assertSame([1, 2, 3, 4, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2, 3, 4, 5]);
     }
 
-    #[Test]
     public function doubleNotFlattensToAnd(): void
     {
         $spec = CompositeSpecification::create()
@@ -232,19 +220,17 @@ final class SqliteIntegrationTest extends TestCase
                 ),
             );
 
-        $this->assertSame([1, 2, 4], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2, 4]);
     }
 
-    #[Test]
     public function orConditionFromArray(): void
     {
         $spec = CompositeSpecification::create()
             ->withOrCondition(conditions: ['status' => 'active', 'price' => 50]);
 
-        $this->assertSame([1, 2, 4, 5], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2, 4, 5]);
     }
 
-    #[Test]
     public function builderFullPagination(): void
     {
         $spec = SpecificationBuilder::create()
@@ -259,15 +245,14 @@ final class SqliteIntegrationTest extends TestCase
 
         $ids = array_map($this->rowId(...), $query->all());
 
-        $this->assertSame([2, 4], $ids);
+        Assert::same($ids, [2, 4]);
     }
 
-    #[Test]
     public function orConditionWithStringListBecomesIn(): void
     {
         $spec = CompositeSpecification::create()
             ->withOrCondition(conditions: ['name' => ['alpha', 'bravo']]);
 
-        $this->assertSame([1, 2], $this->ids($spec));
+        Assert::same($this->ids($spec), [1, 2]);
     }
 }

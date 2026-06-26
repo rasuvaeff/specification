@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\LimitSpecification;
@@ -14,53 +11,50 @@ use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OrConditionSpecification;
 use Rasuvaeff\Specification\OrderBySpecification;
 use Rasuvaeff\Specification\RawSpecification;
-use Rasuvaeff\Specification\Specification;
-use Rasuvaeff\Specification\SpecificationVisitor;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(CompositeSpecification::class)]
-final class CompositeSpecificationTest extends TestCase
+#[Test]
+#[Covers(CompositeSpecification::class)]
+final class CompositeSpecificationTest
 {
-    #[Test]
     public function emptyConstructor(): void
     {
         $spec = new CompositeSpecification();
-        $this->assertEmpty($spec->getSpecifications());
+
+        Assert::blank($spec->getSpecifications());
     }
 
-    #[Test]
     public function constructorWithSpecifications(): void
     {
-        $spec1 = $this->createMock(Specification::class);
-        $spec2 = $this->createMock(Specification::class);
+        $spec1 = new FakeSpecification();
+        $spec2 = new FakeSpecification();
 
         $spec = new CompositeSpecification(specifications: [$spec1, $spec2]);
 
         $specifications = $spec->getSpecifications();
-        $this->assertCount(2, $specifications);
-        $this->assertSame($spec1, $specifications[0]);
-        $this->assertSame($spec2, $specifications[1]);
+        Assert::count($specifications, 2);
+        Assert::same($specifications[0], $spec1);
+        Assert::same($specifications[1], $spec2);
     }
 
-    #[Test]
     public function withSpecification(): void
     {
-        $spec1 = $this->createMock(Specification::class);
-        $spec2 = $this->createMock(Specification::class);
+        $spec1 = new FakeSpecification();
+        $spec2 = new FakeSpecification();
 
         $composite = new CompositeSpecification(specifications: [$spec1]);
         $newComposite = $composite->withSpecification(specification: $spec2);
 
-        // Original should not be modified
-        $this->assertCount(1, $composite->getSpecifications());
+        Assert::count($composite->getSpecifications(), 1);
 
-        // New composite should have both
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(2, $specifications);
-        $this->assertSame($spec1, $specifications[0]);
-        $this->assertSame($spec2, $specifications[1]);
+        Assert::count($specifications, 2);
+        Assert::same($specifications[0], $spec1);
+        Assert::same($specifications[1], $spec2);
     }
 
-    #[Test]
     public function withOrCondition(): void
     {
         $composite = new CompositeSpecification();
@@ -70,105 +64,97 @@ final class CompositeSpecificationTest extends TestCase
         ]);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(OrConditionSpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], OrConditionSpecification::class);
     }
 
-    #[Test]
     public function withNot(): void
     {
-        $innerSpec = $this->createMock(Specification::class);
+        $inner = new FakeSpecification();
         $composite = new CompositeSpecification();
 
-        $newComposite = $composite->withNot(specification: $innerSpec);
+        $newComposite = $composite->withNot(specification: $inner);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(NotSpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], NotSpecification::class);
     }
 
-    #[Test]
     public function create(): void
     {
         $spec = CompositeSpecification::create();
-        $this->assertInstanceOf(CompositeSpecification::class, $spec);
-        $this->assertEmpty($spec->getSpecifications());
+
+        Assert::instanceOf($spec, CompositeSpecification::class);
+        Assert::blank($spec->getSpecifications());
     }
 
-    #[Test]
     public function withComparison(): void
     {
         $composite = new CompositeSpecification();
         $newComposite = $composite->withComparison(column: 'status', value: 'active');
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(ComparisonSpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], ComparisonSpecification::class);
     }
 
-    #[Test]
     public function withSpecificationAppendsSpec(): void
     {
-        $spec = $this->createMock(Specification::class);
+        $spec = new FakeSpecification();
         $composite = new CompositeSpecification();
 
         $newComposite = $composite->withSpecification(specification: $spec);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertSame($spec, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::same($specifications[0], $spec);
     }
 
-    #[Test]
     public function withOrderBy(): void
     {
         $composite = new CompositeSpecification();
         $newComposite = $composite->withOrderBy(columns: ['created_at' => 'DESC']);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(OrderBySpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], OrderBySpecification::class);
     }
 
-    #[Test]
     public function withLimit(): void
     {
         $composite = new CompositeSpecification();
         $newComposite = $composite->withLimit(limit: 10);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(LimitSpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], LimitSpecification::class);
     }
 
-    #[Test]
     public function acceptsVisitor(): void
     {
-        $spec1 = $this->createMock(Specification::class);
-        $spec2 = $this->createMock(Specification::class);
+        $spec1 = new FakeSpecification();
+        $spec2 = new FakeSpecification();
 
         $composite = new CompositeSpecification(specifications: [$spec1, $spec2]);
-        $visitor = $this->createMock(SpecificationVisitor::class);
-
-        $visitor->expects($this->once())
-            ->method('visitComposite')
-            ->with($composite)
-            ->willReturn('result');
+        $visitor = new FakeVisitor(returnValue: 'result');
 
         $result = $composite->accept(visitor: $visitor);
-        $this->assertSame('result', $result);
+
+        Assert::same($visitor->lastMethod, 'visitComposite');
+        Assert::same($visitor->lastArg, $composite);
+        Assert::same($result, 'result');
     }
 
-    #[Test]
     public function withRaw(): void
     {
         $composite = new CompositeSpecification();
         $newComposite = $composite->withRaw(condition: 'price > :min', params: ['min' => 30]);
 
         $specifications = $newComposite->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(RawSpecification::class, $specifications[0]);
-        $this->assertSame('price > :min', $specifications[0]->getCondition());
-        $this->assertSame(['min' => 30], $specifications[0]->getParams());
+        Assert::count($specifications, 1);
+        $raw = $specifications[0];
+        Assert::instanceOf($raw, RawSpecification::class);
+        Assert::same($raw->getCondition(), 'price > :min');
+        Assert::same($raw->getParams(), ['min' => 30]);
     }
 }

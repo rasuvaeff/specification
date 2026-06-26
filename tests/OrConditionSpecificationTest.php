@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\OrConditionSpecification;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(OrConditionSpecification::class)]
-final class OrConditionSpecificationTest extends TestCase
+#[Test]
+#[Covers(OrConditionSpecification::class)]
+final class OrConditionSpecificationTest
 {
-    #[Test]
     public function fromArrayWithSimpleEquality(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -22,12 +22,11 @@ final class OrConditionSpecificationTest extends TestCase
 
         $conditions = $spec->getConditions();
 
-        $this->assertCount(2, $conditions);
-        $this->assertEquals(['status' => 'active'], $conditions[0]);
-        $this->assertEquals(['type' => 'email'], $conditions[1]);
+        Assert::count($conditions, 2);
+        Assert::equals($conditions[0], ['status' => 'active']);
+        Assert::equals($conditions[1], ['type' => 'email']);
     }
 
-    #[Test]
     public function fromArrayWithOperatorTwoElements(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -37,30 +36,25 @@ final class OrConditionSpecificationTest extends TestCase
 
         $conditions = $spec->getConditions();
 
-        $this->assertCount(2, $conditions);
-
-        // Verify the canonical format is produced: ['operator', 'column', 'value']
-        $this->assertEquals(['>', 'age', 18], $conditions[0]);
-        $this->assertEquals(['!=', 'type', 'spam'], $conditions[1]);
+        Assert::count($conditions, 2);
+        Assert::equals($conditions[0], ['>', 'age', 18]);
+        Assert::equals($conditions[1], ['!=', 'type', 'spam']);
     }
 
-    #[Test]
     public function fromArrayWithOperatorThreeElements(): void
     {
-
         $spec = OrConditionSpecification::fromArray(conditions: [
-            'age' => ['>', 18],  // fromArray should produce ['>', 'age', 18]
-            'score' => ['between', 80, 100],  // fromArray should produce ['between', 'score', 80, 100]
+            'age' => ['>', 18],
+            'score' => ['between', 80, 100],
         ]);
 
         $conditions = $spec->getConditions();
 
-        $this->assertCount(2, $conditions);
-        $this->assertEquals(['>', 'age', 18], $conditions[0]);
-        $this->assertEquals(['between', 'score', 80, 100], $conditions[1]);
+        Assert::count($conditions, 2);
+        Assert::equals($conditions[0], ['>', 'age', 18]);
+        Assert::equals($conditions[1], ['between', 'score', 80, 100]);
     }
 
-    #[Test]
     public function fromArrayMixedConditions(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -72,14 +66,13 @@ final class OrConditionSpecificationTest extends TestCase
 
         $conditions = $spec->getConditions();
 
-        $this->assertCount(4, $conditions);
-        $this->assertEquals(['status' => 'active'], $conditions[0]);
-        $this->assertEquals(['>', 'age', 18], $conditions[1]);
-        $this->assertEquals(['like', 'name', '%john%'], $conditions[2]);
-        $this->assertEquals(['in', 'type', ['email', 'sms']], $conditions[3]);
+        Assert::count($conditions, 4);
+        Assert::equals($conditions[0], ['status' => 'active']);
+        Assert::equals($conditions[1], ['>', 'age', 18]);
+        Assert::equals($conditions[2], ['like', 'name', '%john%']);
+        Assert::equals($conditions[3], ['in', 'type', ['email', 'sms']]);
     }
 
-    #[Test]
     public function directConstruction(): void
     {
         $spec = new OrConditionSpecification(conditions: [
@@ -90,23 +83,19 @@ final class OrConditionSpecificationTest extends TestCase
 
         $conditions = $spec->getConditions();
 
-        $this->assertCount(3, $conditions);
-        $this->assertEquals(['status' => 'active'], $conditions[0]);
-        $this->assertEquals(['>', 'age', 18], $conditions[1]);
-        $this->assertEquals(['!=', 'type', 'spam'], $conditions[2]);
+        Assert::count($conditions, 3);
+        Assert::equals($conditions[0], ['status' => 'active']);
+        Assert::equals($conditions[1], ['>', 'age', 18]);
+        Assert::equals($conditions[2], ['!=', 'type', 'spam']);
     }
 
-    #[Test]
     public function emptyConditions(): void
     {
         $spec = new OrConditionSpecification(conditions: []);
 
-        $conditions = $spec->getConditions();
-
-        $this->assertEmpty($conditions);
+        Assert::blank($spec->getConditions());
     }
 
-    #[Test]
     public function fromArrayWithNotBetweenSimplifiedFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -114,11 +103,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['not between', 'age', 18, 65], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['not between', 'age', 18, 65]);
     }
 
-    #[Test]
     public function fromArrayWithNotInSimplifiedFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -126,11 +114,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['not in', 'status', ['banned', 'deleted']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['not in', 'status', ['banned', 'deleted']]);
     }
 
-    #[Test]
     public function fromArrayWithBetweenFullFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -138,11 +125,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['between', 'age', 18, 65], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['between', 'age', 18, 65]);
     }
 
-    #[Test]
     public function fromArrayWithInFullFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -150,11 +136,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['in', 'status', ['active', 'pending']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['in', 'status', ['active', 'pending']]);
     }
 
-    #[Test]
     public function fromArrayWithBetweenInvalidElementCount(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -162,11 +147,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['age' => ['between', 18]], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['age' => ['between', 18]]);
     }
 
-    #[Test]
     public function fromArrayWithInInvalidFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -174,11 +158,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['status' => ['in', 'not_array']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['status' => ['in', 'not_array']]);
     }
 
-    #[Test]
     public function fromArrayWithOperatorThreeElementsMatchingColumn(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -186,11 +169,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['>', 'age', 18], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['>', 'age', 18]);
     }
 
-    #[Test]
     public function fromArrayWithOperatorInvalidElementCount(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -198,11 +180,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['age' => ['>', 18, 20, 30]], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['age' => ['>', 18, 20, 30]]);
     }
 
-    #[Test]
     public function fromArrayWithNonStringArrayKey(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -210,26 +191,22 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['status' => 'active'], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['status' => 'active']);
     }
 
-    #[Test]
     public function acceptsVisitor(): void
     {
         $spec = new OrConditionSpecification(conditions: [['status' => 'active']]);
-        $visitor = $this->createMock(\Rasuvaeff\Specification\SpecificationVisitor::class);
-
-        $visitor->expects($this->once())
-            ->method('visitOrCondition')
-            ->with($spec)
-            ->willReturn('result');
+        $visitor = new FakeVisitor(returnValue: 'result');
 
         $result = $spec->accept(visitor: $visitor);
-        $this->assertSame('result', $result);
+
+        Assert::same($visitor->lastMethod, 'visitOrCondition');
+        Assert::same($visitor->lastArg, $spec);
+        Assert::same($result, 'result');
     }
 
-    #[Test]
     public function fromArrayWithNotInFullFormat(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -237,11 +214,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['not in', 'status', ['banned']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['not in', 'status', ['banned']]);
     }
 
-    #[Test]
     public function fromArrayWithInSimplifiedArrayValues(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -249,25 +225,21 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['in', 'status', ['a', 'b']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['in', 'status', ['a', 'b']]);
     }
 
-    #[Test]
     public function fromArrayWithPlainStringListBecomesEquality(): void
     {
-        // A list of plain string values is not an operator array — it stays a hash
-        // and yiisoft turns it into an IN condition.
         $spec = OrConditionSpecification::fromArray(conditions: [
             'name' => ['alice', 'bob'],
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['name' => ['alice', 'bob']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['name' => ['alice', 'bob']]);
     }
 
-    #[Test]
     public function fromArrayWithUnknownOperatorBecomesEquality(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -275,11 +247,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['status' => ['unknownop', 'x']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['status' => ['unknownop', 'x']]);
     }
 
-    #[Test]
     public function fromArrayNormalizesOperatorCase(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -289,12 +260,11 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertEquals(['between', 'age', 18, 65], $conditions[0]);
-        $this->assertEquals(['in', 'type', ['a', 'b']], $conditions[1]);
-        $this->assertEquals(['>', 'score', 10], $conditions[2]);
+        Assert::equals($conditions[0], ['between', 'age', 18, 65]);
+        Assert::equals($conditions[1], ['in', 'type', ['a', 'b']]);
+        Assert::equals($conditions[2], ['>', 'score', 10]);
     }
 
-    #[Test]
     public function fromArrayWithNotInCanonicalFormatDistinctFromDefault(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -302,11 +272,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertSame(['not in', 'status', ['x', 'y']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::same($conditions[0], ['not in', 'status', ['x', 'y']]);
     }
 
-    #[Test]
     public function fromArrayWithNotInCanonicalNonArrayValuesFallsBack(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -314,11 +283,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertSame(['status' => ['not in', 'status', 'not_an_array']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::same($conditions[0], ['status' => ['not in', 'status', 'not_an_array']]);
     }
 
-    #[Test]
     public function fromArrayWithNotBetweenCanonicalFormatDistinctFromDefault(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -326,11 +294,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertSame(['not between', 'age', 18, 65], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::same($conditions[0], ['not between', 'age', 18, 65]);
     }
 
-    #[Test]
     public function fromArrayWithIntegerFirstElementNotRecognized(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -338,11 +305,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['col' => [0, 'val']], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['col' => [0, 'val']]);
     }
 
-    #[Test]
     public function fromArrayWithBetweenWrongColumnInCanonical(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -350,11 +316,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['age' => ['between', 'other_col', 1, 10]], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['age' => ['between', 'other_col', 1, 10]]);
     }
 
-    #[Test]
     public function fromArrayWithDefaultOperatorCanonicalWrongColumn(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -362,11 +327,10 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(1, $conditions);
-        $this->assertEquals(['age' => ['>', 'other_col', 18]], $conditions[0]);
+        Assert::count($conditions, 1);
+        Assert::equals($conditions[0], ['age' => ['>', 'other_col', 18]]);
     }
 
-    #[Test]
     public function fromArrayWithNonArrayValueTreatedAsEquality(): void
     {
         $spec = OrConditionSpecification::fromArray(conditions: [
@@ -375,8 +339,8 @@ final class OrConditionSpecificationTest extends TestCase
         ]);
 
         $conditions = $spec->getConditions();
-        $this->assertCount(2, $conditions);
-        $this->assertEquals(['status' => 'active'], $conditions[0]);
-        $this->assertEquals(['count' => 5], $conditions[1]);
+        Assert::count($conditions, 2);
+        Assert::equals($conditions[0], ['status' => 'active']);
+        Assert::equals($conditions[1], ['count' => 5]);
     }
 }

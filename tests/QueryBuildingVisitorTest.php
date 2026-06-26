@@ -6,317 +6,283 @@ namespace Rasuvaeff\Specification\Tests;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LimitSpecification;
 use Rasuvaeff\Specification\NotSpecification;
+use Rasuvaeff\Specification\OffsetSpecification;
 use Rasuvaeff\Specification\OrConditionSpecification;
 use Rasuvaeff\Specification\OrderBySpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\QueryBuildingVisitor;
 use Rasuvaeff\Specification\RawSpecification;
 use Rasuvaeff\Specification\SpecificationBuilder;
-use Yiisoft\Db\Connection\ConnectionInterface;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Expect;
+use Testo\Test;
 use Yiisoft\Db\Query\Query;
-use Yiisoft\Db\Query\QueryInterface;
 
 use const SORT_ASC;
 use const SORT_DESC;
 
-#[CoversClass(QueryBuildingVisitor::class)]
-final class QueryBuildingVisitorTest extends TestCase
+#[Test]
+#[Covers(QueryBuildingVisitor::class)]
+final class QueryBuildingVisitorTest
 {
-    private MockObject&QueryInterface $queryMock;
-
-    private QueryBuildingVisitor $visitor;
-
-    #[\Override]
-    protected function setUp(): void
+    private function makeQuery(): Query
     {
-        $this->queryMock = $this->createMock(QueryInterface::class);
-        $this->visitor = new QueryBuildingVisitor(query: $this->queryMock);
+        return new Query(db: new FakeConnection());
     }
 
-    private function createQuery(): Query
-    {
-        return new Query(db: $this->createMock(ConnectionInterface::class));
-    }
-
-    #[Test]
     public function visitComparisonSimpleOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: 25, operator: '>');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['>', 'age', 25]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['>', 'age', 25]);
     }
 
-    #[Test]
     public function visitComparisonBetweenOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: [18, 65], operator: 'between');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['between', 'age', 18, 65]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['between', 'age', 18, 65]);
     }
 
-    #[Test]
     public function visitComparisonBetweenInvalidArray(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Operator "between" requires array with exactly two values');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "between" requires array with exactly two values');
 
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: [18], operator: 'between');
-        $this->visitor->visitComparison(specification: $spec);
+        $visitor->visitComparison(specification: $spec);
     }
 
-    #[Test]
     public function visitComparisonInOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'status', value: ['active', 'pending'], operator: 'in');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['in', 'status', ['active', 'pending']]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['in', 'status', ['active', 'pending']]);
     }
 
-    #[Test]
     public function visitComparisonIsOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'deleted_at', value: null, operator: 'is');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['=', 'deleted_at', null]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['=', 'deleted_at', null]);
     }
 
-    #[Test]
     public function visitComparisonIsNotOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'deleted_at', value: null, operator: 'is not');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['!=', 'deleted_at', null]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['!=', 'deleted_at', null]);
     }
 
-    #[Test]
     public function visitComposite(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec1 = new ComparisonSpecification(column: 'status', value: 'active');
         $spec2 = new ComparisonSpecification(column: 'age', value: 18, operator: '>');
         $composite = new CompositeSpecification(specifications: [$spec1, $spec2]);
 
-        $this->queryMock->expects($this->exactly(2))
-            ->method('andWhere');
+        $visitor->visitComposite(specification: $composite);
 
-        $this->visitor->visitComposite(specification: $composite);
+        Assert::same($query->getWhere(), ['and', ['=', 'status', 'active'], ['>', 'age', 18]]);
     }
 
-    #[Test]
     public function visitOrCondition(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrConditionSpecification(conditions: [
             ['status' => 'active'],
             ['>', 'age', 18],
         ]);
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['or', ['status' => 'active'], ['>', 'age', 18]]);
+        $visitor->visitOrCondition(specification: $spec);
 
-        $this->visitor->visitOrCondition(specification: $spec);
+        Assert::same($query->getWhere(), ['or', ['status' => 'active'], ['>', 'age', 18]]);
     }
 
-    #[Test]
     public function visitOrConditionEmpty(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrConditionSpecification(conditions: []);
 
-        $this->queryMock->expects($this->never())
-            ->method('andWhere');
+        $visitor->visitOrCondition(specification: $spec);
 
-        $this->visitor->visitOrCondition(specification: $spec);
+        Assert::null($query->getWhere());
     }
 
-    #[Test]
     public function visitRawStringCondition(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new RawSpecification(condition: 'age > :age', params: [':age' => 18]);
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with('age > :age', [':age' => 18]);
+        $visitor->visitRaw(specification: $spec);
 
-        $this->visitor->visitRaw(specification: $spec);
+        Assert::same($query->getWhere(), 'age > :age');
+        Assert::same($query->getParams(), [':age' => 18]);
     }
 
-    #[Test]
     public function visitRawArrayCondition(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $condition = ['or', ['a' => 1], ['b' => 2]];
         $params = ['a' => 1, 'b' => 2];
         $spec = new RawSpecification(condition: $condition, params: $params);
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with($condition, $params);
+        $visitor->visitRaw(specification: $spec);
 
-        $this->visitor->visitRaw(specification: $spec);
+        Assert::same($query->getWhere(), $condition);
+        Assert::same($query->getParams(), $params);
     }
 
-    #[Test]
     public function visitComparisonNotBetweenOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: [18, 65], operator: 'not between');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['not between', 'age', 18, 65]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['not between', 'age', 18, 65]);
     }
 
-    #[Test]
     public function visitComparisonNotInOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'status', value: ['banned', 'deleted'], operator: 'not in');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['not in', 'status', ['banned', 'deleted']]);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['not in', 'status', ['banned', 'deleted']]);
     }
 
-    #[Test]
     public function visitComparisonNotBetweenInvalidArray(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('requires array with exactly two values');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('requires array with exactly two values');
 
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: [18], operator: 'not between');
-        $this->visitor->visitComparison(specification: $spec);
+        $visitor->visitComparison(specification: $spec);
     }
 
-    #[Test]
     public function visitComparisonNotInInvalidValue(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('requires array value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('requires array value');
 
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'age', value: 'not_array', operator: 'not in');
-        $this->visitor->visitComparison(specification: $spec);
+        $visitor->visitComparison(specification: $spec);
     }
 
-    #[Test]
     public function visitComparisonDefaultOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'name', value: 'John', operator: '!=');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['!=', 'name', 'John']);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['!=', 'name', 'John']);
     }
 
-    #[Test]
     public function visitComparisonLikeOperator(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new ComparisonSpecification(column: 'name', value: '%john%', operator: 'like');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['like', 'name', '%john%']);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['like', 'name', '%john%']);
     }
 
-    #[Test]
     public function visitComparisonDateTimeValue(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = ComparisonSpecification::greaterThan(
             column: 'created_at',
             value: new DateTimeImmutable('2024-01-02 03:04:05'),
         );
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['>', 'created_at', '2024-01-02 03:04:05']);
+        $visitor->visitComparison(specification: $spec);
 
-        $this->visitor->visitComparison(specification: $spec);
+        Assert::same($query->getWhere(), ['>', 'created_at', '2024-01-02 03:04:05']);
     }
 
-    #[Test]
     public function visitNotWithComparison(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $innerSpec = new ComparisonSpecification(column: 'status', value: 'active');
         $notSpec = new NotSpecification(specification: $innerSpec);
 
-        $queryMock = $this->createMock(QueryInterface::class);
-        $queryMock->method('getWhere')->willReturn(['=', 'status', 'active']);
-
-        /** @var list<array<mixed>> $andWhereCalls */
-        $andWhereCalls = [];
-        $queryMock->method('andWhere')
-            ->willReturnCallback(function (array $condition) use ($queryMock, &$andWhereCalls): QueryInterface {
-                $andWhereCalls[] = $condition;
-
-                return $queryMock;
-            });
-
-        $visitor = new QueryBuildingVisitor(query: $queryMock);
         $visitor->visitNot(specification: $notSpec);
 
-        $notConditions = array_filter($andWhereCalls, static fn(array $c): bool => ($c[0] ?? null) === 'not');
-        $this->assertCount(1, $notConditions);
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], 'not');
     }
 
-    #[Test]
     public function visitNotWithDoubleNotUnwraps(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $innerSpec = new ComparisonSpecification(column: 'status', value: 'active');
         $singleNot = new NotSpecification(specification: $innerSpec);
         $doubleNot = new NotSpecification(specification: $singleNot);
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['=', 'status', 'active']);
+        $visitor->visitNot(specification: $doubleNot);
 
-        $this->visitor->visitNot(specification: $doubleNot);
+        Assert::same($query->getWhere(), ['=', 'status', 'active']);
     }
 
-    #[Test]
     public function visitOrWithEmptySpecifications(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $orSpec = new OrSpecification(specifications: []);
 
-        $this->queryMock->expects($this->never())
-            ->method('andWhere');
+        $visitor->visitOr(specification: $orSpec);
 
-        $this->visitor->visitOr(specification: $orSpec);
+        Assert::null($query->getWhere());
     }
 
-    #[Test]
     public function visitOrUsesIsolatedSubQueriesAndMergesParams(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $query->where(condition: ['tenant_id' => 1], params: [':tenant_id' => 1]);
 
         $visitor = new QueryBuildingVisitor(query: $query);
@@ -325,20 +291,19 @@ final class QueryBuildingVisitorTest extends TestCase
             new RawSpecification(condition: 'status = :pending', params: [':pending' => 'pending']),
         ));
 
-        $this->assertSame(
-            ['and', ['tenant_id' => 1], ['or', 'status = :active', 'status = :pending']],
+        Assert::same(
             $query->getWhere(),
+            ['and', ['tenant_id' => 1], ['or', 'status = :active', 'status = :pending']],
         );
-        $this->assertSame(
-            [':tenant_id' => 1, ':active' => 'active', ':pending' => 'pending'],
+        Assert::same(
             $query->getParams(),
+            [':tenant_id' => 1, ':active' => 'active', ':pending' => 'pending'],
         );
     }
 
-    #[Test]
     public function visitOrRenamesCollidingRawParams(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $query->where(condition: ['tenant_id' => 1], params: [':tenant_id' => 1]);
 
         $visitor = new QueryBuildingVisitor(query: $query);
@@ -347,20 +312,19 @@ final class QueryBuildingVisitorTest extends TestCase
             new RawSpecification(condition: 'status = :value', params: [':value' => 'pending']),
         ));
 
-        $this->assertSame(
-            ['and', ['tenant_id' => 1], ['or', 'status = :value', 'status = :value_0']],
+        Assert::same(
             $query->getWhere(),
+            ['and', ['tenant_id' => 1], ['or', 'status = :value', 'status = :value_0']],
         );
-        $this->assertSame(
-            [':tenant_id' => 1, ':value' => 'active', ':value_0' => 'pending'],
+        Assert::same(
             $query->getParams(),
+            [':tenant_id' => 1, ':value' => 'active', ':value_0' => 'pending'],
         );
     }
 
-    #[Test]
     public function visitNotRenamesCollidingRawParams(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $query->where(condition: ['tenant_id' => 1], params: [':tenant_id' => 1]);
 
         $visitor = new QueryBuildingVisitor(query: $query);
@@ -368,17 +332,16 @@ final class QueryBuildingVisitorTest extends TestCase
             specification: new RawSpecification(condition: 'status = :tenant_id', params: [':tenant_id' => 'active']),
         ));
 
-        $this->assertSame(
-            ['and', ['tenant_id' => 1], ['not', 'status = :tenant_id_0']],
+        Assert::same(
             $query->getWhere(),
+            ['and', ['tenant_id' => 1], ['not', 'status = :tenant_id_0']],
         );
-        $this->assertSame(
-            [':tenant_id' => 1, ':tenant_id_0' => 'active'],
+        Assert::same(
             $query->getParams(),
+            [':tenant_id' => 1, ':tenant_id_0' => 'active'],
         );
     }
 
-    #[Test]
     public function specificationBuilderOrWhereAppliesAsOrCondition(): void
     {
         $specification = SpecificationBuilder::create()
@@ -389,172 +352,151 @@ final class QueryBuildingVisitorTest extends TestCase
             })
             ->build();
 
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
         $visitor->visitComposite(specification: $specification);
 
-        $this->assertSame(
-            ['or', ['=', 'status', 'active'], ['and', ['=', 'type', 'email'], ['>', 'priority', 5]]],
+        Assert::same(
             $query->getWhere(),
+            ['or', ['=', 'status', 'active'], ['and', ['=', 'type', 'email'], ['>', 'priority', 5]]],
         );
     }
 
-    #[Test]
     public function visitOrderByDirection(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['created_at' => 'DESC']);
 
-        $this->queryMock->expects($this->once())
-            ->method('addOrderBy')
-            ->with(['created_at' => SORT_DESC]);
+        $visitor->visitOrderBy(specification: $spec);
 
-        $this->visitor->visitOrderBy(specification: $spec);
+        Assert::same($query->getOrderBy(), ['created_at' => SORT_DESC]);
     }
 
-    #[Test]
     public function visitOrderByInvalidDirection(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid order direction "sideways" for column "name"');
+        Expect::exception(\InvalidArgumentException::class)->withMessageContaining('Invalid order direction "sideways" for column "name"');
 
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['name' => 'sideways']);
-        $this->visitor->visitOrderBy(specification: $spec);
+        $visitor->visitOrderBy(specification: $spec);
     }
 
-    #[Test]
     public function visitNotWithEmptyCompositeThrows(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        Expect::exception(\InvalidArgumentException::class);
 
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $notSpec = new NotSpecification(specification: new CompositeSpecification(specifications: []));
-        $this->visitor->visitNot(specification: $notSpec);
+        $visitor->visitNot(specification: $notSpec);
     }
 
-    #[Test]
     public function visitOrderByCustom(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['name' => 'ASC']);
 
-        $this->queryMock->expects($this->once())
-            ->method('addOrderBy')
-            ->with(['name' => SORT_ASC]);
+        $visitor->visitOrderBy(specification: $spec);
 
-        $this->visitor->visitOrderBy(specification: $spec);
+        Assert::same($query->getOrderBy(), ['name' => SORT_ASC]);
     }
 
-    #[Test]
     public function visitOrderByMultipleColumns(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['sort' => 'DESC', 'name' => 'ASC']);
 
-        $this->queryMock->expects($this->once())
-            ->method('addOrderBy')
-            ->with(['sort' => SORT_DESC, 'name' => SORT_ASC]);
+        $visitor->visitOrderBy(specification: $spec);
 
-        $this->visitor->visitOrderBy(specification: $spec);
+        Assert::same($query->getOrderBy(), ['sort' => SORT_DESC, 'name' => SORT_ASC]);
     }
 
-    #[Test]
     public function visitCompositeWithEmptySpecifications(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $composite = new CompositeSpecification(specifications: []);
 
-        $this->queryMock->expects($this->never())
-            ->method('andWhere');
+        $visitor->visitComposite(specification: $composite);
 
-        $this->visitor->visitComposite(specification: $composite);
+        Assert::null($query->getWhere());
     }
 
-    #[Test]
     public function visitCompositeWithMultipleSpecifications(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec1 = new ComparisonSpecification(column: 'status', value: 'active');
         $spec2 = new ComparisonSpecification(column: 'age', value: 18, operator: '>');
         $composite = new CompositeSpecification(specifications: [$spec1, $spec2]);
 
-        $this->queryMock->method('andWhere')->willReturn($this->queryMock);
+        $visitor->visitComposite(specification: $composite);
 
-        $expectedCalls = [
-            ['=', 'status', 'active'],
-            ['>', 'age', 18],
-        ];
-
-        $callIndex = 0;
-        $this->queryMock->expects($this->exactly(2))
-            ->method('andWhere')
-            ->willReturnCallback(function (array $condition) use (&$callIndex, $expectedCalls): MockObject&QueryInterface {
-                assert($callIndex < count($expectedCalls));
-                $this->assertSame($expectedCalls[$callIndex], $condition);
-                $callIndex++;
-
-                return $this->queryMock;
-            });
-
-        $this->visitor->visitComposite(specification: $composite);
+        Assert::same($query->getWhere(), ['and', ['=', 'status', 'active'], ['>', 'age', 18]]);
     }
 
-    #[Test]
     public function visitComparisonInWithDateTimeValues(): void
     {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $dt1 = new DateTimeImmutable('2024-01-01');
         $dt2 = new DateTimeImmutable('2024-06-01');
 
-        $this->queryMock->expects($this->once())
-            ->method('andWhere')
-            ->with(['in', 'date_col', ['2024-01-01 00:00:00', '2024-06-01 00:00:00']]);
-
         $spec = new ComparisonSpecification(column: 'date_col', value: [$dt1, $dt2], operator: 'in');
-        $this->visitor->visitComparison(specification: $spec);
+        $visitor->visitComparison(specification: $spec);
+
+        Assert::same($query->getWhere(), ['in', 'date_col', ['2024-01-01 00:00:00', '2024-06-01 00:00:00']]);
     }
 
-    #[Test]
     public function visitOrderByWithLowercaseDirectionStrings(): void
     {
-        $this->queryMock->expects($this->once())
-            ->method('addOrderBy')
-            ->with(['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
-
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['col_a' => 'asc', 'col_b' => 'desc']);
-        $this->visitor->visitOrderBy(specification: $spec);
+
+        $visitor->visitOrderBy(specification: $spec);
+
+        Assert::same($query->getOrderBy(), ['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
     }
 
-    #[Test]
     public function visitOrderByWithIntDirectionTriggersContinue(): void
     {
-        $this->queryMock->expects($this->once())
-            ->method('addOrderBy')
-            ->with(['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
-
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
         $spec = new OrderBySpecification(columns: ['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
-        $this->visitor->visitOrderBy(specification: $spec);
+
+        $visitor->visitOrderBy(specification: $spec);
+
+        Assert::same($query->getOrderBy(), ['col_a' => SORT_ASC, 'col_b' => SORT_DESC]);
     }
 
-    #[Test]
     public function visitLimitAppliesLimitToQuery(): void
     {
-        $query = $this->createQuery();
-
+        $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
-        $visitor->visitLimit(specification: new \Rasuvaeff\Specification\LimitSpecification(limit: 42));
 
-        $this->assertSame(42, $query->getLimit());
+        $visitor->visitLimit(specification: new LimitSpecification(limit: 42));
+
+        Assert::same($query->getLimit(), 42);
     }
 
-    #[Test]
     public function visitOffsetAppliesOffsetToQuery(): void
     {
-        $query = $this->createQuery();
-
+        $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
-        $visitor->visitOffset(specification: new \Rasuvaeff\Specification\OffsetSpecification(offset: 10));
 
-        $this->assertSame(10, $query->getOffset());
+        $visitor->visitOffset(specification: new OffsetSpecification(offset: 10));
+
+        Assert::same($query->getOffset(), 10);
     }
 
-    #[Test]
     public function visitOrWithSingleConditionFlattensToAndWhere(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
 
         $visitor->visitOr(specification: OrSpecification::create(
@@ -562,14 +504,13 @@ final class QueryBuildingVisitorTest extends TestCase
         ));
 
         $where = $query->getWhere();
-        $this->assertNotNull($where);
-        $this->assertSame(['=', 'status', 'active'], $where);
+        Assert::notNull($where);
+        Assert::same($where, ['=', 'status', 'active']);
     }
 
-    #[Test]
     public function normalizePlaceholderAddsColonPrefix(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $query->where(condition: ['a' => 1], params: [':value' => 1]);
 
         $visitor = new QueryBuildingVisitor(query: $query);
@@ -578,16 +519,15 @@ final class QueryBuildingVisitorTest extends TestCase
         ));
 
         $params = $query->getParams();
-        $this->assertArrayHasKey(':value', $params);
-        $this->assertSame(1, $params[':value']);
-        $this->assertArrayHasKey(':value_0', $params);
-        $this->assertSame(2, $params[':value_0']);
+        Assert::true(array_key_exists(':value', $params));
+        Assert::same($params[':value'], 1);
+        Assert::true(array_key_exists(':value_0', $params));
+        Assert::same($params[':value_0'], 2);
     }
 
-    #[Test]
     public function replacePlaceholdersInArrayCondition(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $query->where(condition: ['p' => 1], params: [':p' => 1]);
 
         $visitor = new QueryBuildingVisitor(query: $query);
@@ -599,16 +539,15 @@ final class QueryBuildingVisitorTest extends TestCase
         ));
 
         $where = $query->getWhere();
-        $this->assertSame(
-            ['and', ['p' => 1], ['not', ['and', 'x = :p_0', 'y = :p_0']]],
+        Assert::same(
             $where,
+            ['and', ['p' => 1], ['not', ['and', 'x = :p_0', 'y = :p_0']]],
         );
     }
 
-    #[Test]
     public function visitOrSkipsEmptyAndProcessesRemaining(): void
     {
-        $query = $this->createQuery();
+        $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
 
         $visitor->visitOr(specification: new OrSpecification(specifications: [
@@ -616,10 +555,9 @@ final class QueryBuildingVisitorTest extends TestCase
             new ComparisonSpecification(column: 'status', value: 'active'),
         ]));
 
-        $this->assertSame(['=', 'status', 'active'], $query->getWhere());
+        Assert::same($query->getWhere(), ['=', 'status', 'active']);
     }
 
-    #[Test]
     public function orWherePreservesOriginalBuilderState(): void
     {
         $builder = SpecificationBuilder::create()
@@ -630,10 +568,10 @@ final class QueryBuildingVisitorTest extends TestCase
         });
 
         $originalSpecs = $builder->build()->getSpecifications();
-        $this->assertCount(1, $originalSpecs);
+        Assert::count($originalSpecs, 1);
 
         $modifiedSpecs = $modified->build()->getSpecifications();
-        $this->assertCount(1, $modifiedSpecs);
-        $this->assertInstanceOf(OrSpecification::class, $modifiedSpecs[0]);
+        Assert::count($modifiedSpecs, 1);
+        Assert::instanceOf($modifiedSpecs[0], OrSpecification::class);
     }
 }
