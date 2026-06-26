@@ -4,80 +4,74 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\Specification;
 use Rasuvaeff\Specification\SpecificationVisitor;
 use ReflectionClass;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Test;
 
+#[Test]
 #[CoversNothing]
-final class SpecificationTest extends TestCase
+final class SpecificationTest
 {
-    #[Test]
     public function interfaceContract(): void
     {
         $reflection = new ReflectionClass(objectOrClass: Specification::class);
 
-        $this->assertTrue($reflection->isInterface());
+        Assert::true($reflection->isInterface());
 
         $methods = $reflection->getMethods();
-        $this->assertCount(1, $methods);
+        Assert::count($methods, 1);
 
-        $this->assertTrue($reflection->hasMethod(name: 'accept'));
+        Assert::true($reflection->hasMethod(name: 'accept'));
         $acceptMethod = $reflection->getMethod(name: 'accept');
 
-        // The return type should be mixed (it is the template type T)
         $returnType = $acceptMethod->getReturnType();
-        $this->assertNull($returnType, "Method accept should not have declared return type (uses template T)");
+        Assert::null($returnType);
 
-        // Verify the return type PHPDoc
         $methodDocComment = $acceptMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@param SpecificationVisitor<T> $visitor', $methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@param SpecificationVisitor<T> $visitor');
+        Assert::string($methodDocComment)->contains('@return T');
 
         $parameters = $acceptMethod->getParameters();
-        $this->assertCount(1, $parameters);
+        Assert::count($parameters, 1);
 
         $firstParam = $parameters[0];
-        $this->assertSame('visitor', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'visitor');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(SpecificationVisitor::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), SpecificationVisitor::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
     }
 
-    #[Test]
     public function templateAnnotation(): void
     {
         $reflection = new ReflectionClass(objectOrClass: Specification::class);
         $docComment = $reflection->getDocComment();
 
-        $this->assertIsString($docComment);
-        $this->assertStringContainsString('@template T', $docComment);
+        Assert::true(is_string($docComment));
+        Assert::string($docComment)->contains('@template T');
     }
 
-    #[Test]
     public function noAdditionalPublicMethods(): void
     {
         $reflection = new ReflectionClass(objectOrClass: Specification::class);
         $methods = $reflection->getMethods();
 
-        $this->assertCount(1, $methods);
-        $this->assertSame('accept', $methods[0]->getName());
+        Assert::count($methods, 1);
+        Assert::same($methods[0]->getName(), 'accept');
     }
 
-    #[Test]
     public function interfaceHierarchy(): void
     {
         $reflection = new ReflectionClass(objectOrClass: Specification::class);
 
         $interfaces = $reflection->getInterfaceNames();
-        $this->assertEmpty($interfaces, 'SpecificationInterface should not extend any other interfaces');
-
-        $this->assertTrue($reflection->isInterface());
+        Assert::blank($interfaces);
+        Assert::true($reflection->isInterface());
     }
 }

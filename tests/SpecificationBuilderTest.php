@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\LimitSpecification;
@@ -15,36 +12,37 @@ use Rasuvaeff\Specification\OffsetSpecification;
 use Rasuvaeff\Specification\OrderBySpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\SpecificationBuilder;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(SpecificationBuilder::class)]
-final class SpecificationBuilderTest extends TestCase
+#[Test]
+#[Covers(SpecificationBuilder::class)]
+final class SpecificationBuilderTest
 {
-    #[Test]
     public function create(): void
     {
         $builder = SpecificationBuilder::create();
-        $this->assertInstanceOf(SpecificationBuilder::class, $builder);
+        Assert::instanceOf($builder, SpecificationBuilder::class);
 
         $spec = $builder->build();
-        $this->assertInstanceOf(CompositeSpecification::class, $spec);
-        $this->assertEmpty($spec->getSpecifications());
+        Assert::instanceOf($spec, CompositeSpecification::class);
+        Assert::blank($spec->getSpecifications());
     }
 
-    #[Test]
     public function where(): void
     {
         $builder = SpecificationBuilder::create()
             ->where(column: 'status', value: 'active');
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(1, $specifications);
+        Assert::count($specifications, 1);
 
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('=', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '=');
     }
 
-    #[Test]
     public function whereWithCustomOperator(): void
     {
         $builder = SpecificationBuilder::create()
@@ -52,11 +50,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('>', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '>');
     }
 
-    #[Test]
     public function whereEqual(): void
     {
         $builder = SpecificationBuilder::create()
@@ -64,11 +61,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('=', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '=');
     }
 
-    #[Test]
     public function whereNotEqual(): void
     {
         $builder = SpecificationBuilder::create()
@@ -76,11 +72,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('!=', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '!=');
     }
 
-    #[Test]
     public function whereGreaterThan(): void
     {
         $builder = SpecificationBuilder::create()
@@ -88,11 +83,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('>', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '>');
     }
 
-    #[Test]
     public function whereLessThan(): void
     {
         $builder = SpecificationBuilder::create()
@@ -100,11 +94,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('<', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '<');
     }
 
-    #[Test]
     public function whereGreaterThanOrEqual(): void
     {
         $builder = SpecificationBuilder::create()
@@ -112,11 +105,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('>=', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '>=');
     }
 
-    #[Test]
     public function whereLessThanOrEqual(): void
     {
         $builder = SpecificationBuilder::create()
@@ -124,11 +116,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('<=', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), '<=');
     }
 
-    #[Test]
     public function whereIn(): void
     {
         $builder = SpecificationBuilder::create()
@@ -136,12 +127,11 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('in', $spec->getOperator());
-        $this->assertSame(['active', 'pending'], $spec->getValue());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'in');
+        Assert::same($spec->getValue(), ['active', 'pending']);
     }
 
-    #[Test]
     public function whereNotIn(): void
     {
         $builder = SpecificationBuilder::create()
@@ -149,11 +139,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('not in', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'not in');
     }
 
-    #[Test]
     public function whereLike(): void
     {
         $builder = SpecificationBuilder::create()
@@ -161,11 +150,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('like', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'like');
     }
 
-    #[Test]
     public function whereNotLike(): void
     {
         $builder = SpecificationBuilder::create()
@@ -173,11 +161,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('not like', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'not like');
     }
 
-    #[Test]
     public function whereBetween(): void
     {
         $builder = SpecificationBuilder::create()
@@ -185,12 +172,11 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('between', $spec->getOperator());
-        $this->assertSame([18, 65], $spec->getValue());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'between');
+        Assert::same($spec->getValue(), [18, 65]);
     }
 
-    #[Test]
     public function whereNull(): void
     {
         $builder = SpecificationBuilder::create()
@@ -198,12 +184,11 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('is', $spec->getOperator());
-        $this->assertNull($spec->getValue());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'is');
+        Assert::null($spec->getValue());
     }
 
-    #[Test]
     public function whereNotNull(): void
     {
         $builder = SpecificationBuilder::create()
@@ -211,11 +196,10 @@ final class SpecificationBuilderTest extends TestCase
 
         $specifications = $builder->build()->getSpecifications();
         $spec = $specifications[0];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec);
-        $this->assertSame('is not', $spec->getOperator());
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getOperator(), 'is not');
     }
 
-    #[Test]
     public function chainedMethods(): void
     {
         $builder = SpecificationBuilder::create()
@@ -224,20 +208,19 @@ final class SpecificationBuilderTest extends TestCase
             ->whereLike(column: 'name', pattern: '%john%');
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(3, $specifications);
+        Assert::count($specifications, 3);
 
         $spec0 = $specifications[0];
         $spec1 = $specifications[1];
         $spec2 = $specifications[2];
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec0);
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec1);
-        $this->assertInstanceOf(ComparisonSpecification::class, $spec2);
-        $this->assertSame('=', $spec0->getOperator());
-        $this->assertSame('>', $spec1->getOperator());
-        $this->assertSame('like', $spec2->getOperator());
+        Assert::instanceOf($spec0, ComparisonSpecification::class);
+        Assert::instanceOf($spec1, ComparisonSpecification::class);
+        Assert::instanceOf($spec2, ComparisonSpecification::class);
+        Assert::same($spec0->getOperator(), '=');
+        Assert::same($spec1->getOperator(), '>');
+        Assert::same($spec2->getOperator(), 'like');
     }
 
-    #[Test]
     public function whereNotBetweenAndStringShortcuts(): void
     {
         $builder = SpecificationBuilder::create()
@@ -250,20 +233,19 @@ final class SpecificationBuilderTest extends TestCase
 
         /** @var list<ComparisonSpecification> $specifications */
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(6, $specifications);
+        Assert::count($specifications, 6);
 
-        $this->assertSame('not between', $specifications[0]->getOperator());
-        $this->assertSame('ilike', $specifications[1]->getOperator());
-        $this->assertSame('not ilike', $specifications[2]->getOperator());
-        $this->assertSame('like', $specifications[3]->getOperator());
-        $this->assertSame('pre-%', $specifications[3]->getValue());
-        $this->assertSame('like', $specifications[4]->getOperator());
-        $this->assertSame('%-post', $specifications[4]->getValue());
-        $this->assertSame('like', $specifications[5]->getOperator());
-        $this->assertSame('%mid%', $specifications[5]->getValue());
+        Assert::same($specifications[0]->getOperator(), 'not between');
+        Assert::same($specifications[1]->getOperator(), 'ilike');
+        Assert::same($specifications[2]->getOperator(), 'not ilike');
+        Assert::same($specifications[3]->getOperator(), 'like');
+        Assert::same($specifications[3]->getValue(), 'pre-%');
+        Assert::same($specifications[4]->getOperator(), 'like');
+        Assert::same($specifications[4]->getValue(), '%-post');
+        Assert::same($specifications[5]->getOperator(), 'like');
+        Assert::same($specifications[5]->getValue(), '%mid%');
     }
 
-    #[Test]
     public function sequentialOrWhereFlattens(): void
     {
         $builder = SpecificationBuilder::create()
@@ -276,12 +258,13 @@ final class SpecificationBuilderTest extends TestCase
             });
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(OrSpecification::class, $specifications[0]);
-        $this->assertCount(3, $specifications[0]->getSpecifications());
+        Assert::count($specifications, 1);
+        /** @var OrSpecification $flatOr */
+        $flatOr = $specifications[0];
+        Assert::instanceOf($flatOr, OrSpecification::class);
+        Assert::count($flatOr->getSpecifications(), 3);
     }
 
-    #[Test]
     public function orWhere(): void
     {
         $builder = SpecificationBuilder::create()
@@ -292,19 +275,23 @@ final class SpecificationBuilderTest extends TestCase
             });
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(OrSpecification::class, $specifications[0]);
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], OrSpecification::class);
 
+        /** @var OrSpecification $orSpecification */
         $orSpecification = $specifications[0];
         $orSpecifications = $orSpecification->getSpecifications();
-        $this->assertCount(2, $orSpecifications);
-        $this->assertInstanceOf(CompositeSpecification::class, $orSpecifications[0]);
-        $this->assertInstanceOf(CompositeSpecification::class, $orSpecifications[1]);
-        $this->assertCount(1, $orSpecifications[0]->getSpecifications());
-        $this->assertCount(2, $orSpecifications[1]->getSpecifications());
+        Assert::count($orSpecifications, 2);
+        /** @var CompositeSpecification $orLeft */
+        $orLeft = $orSpecifications[0];
+        /** @var CompositeSpecification $orRight */
+        $orRight = $orSpecifications[1];
+        Assert::instanceOf($orLeft, CompositeSpecification::class);
+        Assert::instanceOf($orRight, CompositeSpecification::class);
+        Assert::count($orLeft->getSpecifications(), 1);
+        Assert::count($orRight->getSpecifications(), 2);
     }
 
-    #[Test]
     public function notWhere(): void
     {
         $builder = SpecificationBuilder::create()
@@ -314,17 +301,18 @@ final class SpecificationBuilderTest extends TestCase
             });
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(2, $specifications);
-        $this->assertInstanceOf(ComparisonSpecification::class, $specifications[0]);
-        $this->assertInstanceOf(NotSpecification::class, $specifications[1]);
+        Assert::count($specifications, 2);
+        Assert::instanceOf($specifications[0], ComparisonSpecification::class);
+        Assert::instanceOf($specifications[1], NotSpecification::class);
 
+        /** @var NotSpecification $notSpecification */
         $notSpecification = $specifications[1];
         $nestedSpecification = $notSpecification->getSpecification();
-        $this->assertInstanceOf(CompositeSpecification::class, $nestedSpecification);
-        $this->assertCount(1, $nestedSpecification->getSpecifications());
+        Assert::instanceOf($nestedSpecification, CompositeSpecification::class);
+        /** @var CompositeSpecification $nestedSpecification */
+        Assert::count($nestedSpecification->getSpecifications(), 1);
     }
 
-    #[Test]
     public function orderBy(): void
     {
         $builder = SpecificationBuilder::create()
@@ -332,36 +320,35 @@ final class SpecificationBuilderTest extends TestCase
             ->orderBy(columns: ['created_at' => 'DESC']);
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(2, $specifications);
-        $this->assertInstanceOf(ComparisonSpecification::class, $specifications[0]);
-        $this->assertInstanceOf(OrderBySpecification::class, $specifications[1]);
+        Assert::count($specifications, 2);
+        Assert::instanceOf($specifications[0], ComparisonSpecification::class);
+        Assert::instanceOf($specifications[1], OrderBySpecification::class);
     }
 
-    #[Test]
     public function limit(): void
     {
         $builder = SpecificationBuilder::create()
             ->limit(limit: 10);
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(LimitSpecification::class, $specifications[0]);
-        $this->assertSame(10, $specifications[0]->getLimit());
+        Assert::count($specifications, 1);
+        $limitSpec = $specifications[0];
+        Assert::instanceOf($limitSpec, LimitSpecification::class);
+        Assert::same($limitSpec->getLimit(), 10);
     }
 
-    #[Test]
     public function offset(): void
     {
         $builder = SpecificationBuilder::create()
             ->offset(offset: 20);
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(1, $specifications);
-        $this->assertInstanceOf(OffsetSpecification::class, $specifications[0]);
-        $this->assertSame(20, $specifications[0]->getOffset());
+        Assert::count($specifications, 1);
+        $offsetSpec = $specifications[0];
+        Assert::instanceOf($offsetSpec, OffsetSpecification::class);
+        Assert::same($offsetSpec->getOffset(), 20);
     }
 
-    #[Test]
     public function fullPaginationChain(): void
     {
         $builder = SpecificationBuilder::create()
@@ -371,69 +358,66 @@ final class SpecificationBuilderTest extends TestCase
             ->offset(offset: 40);
 
         $specifications = $builder->build()->getSpecifications();
-        $this->assertCount(4, $specifications);
+        Assert::count($specifications, 4);
     }
 
-    #[Test]
     public function whereIsImmutableDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create();
         $original->whereEqual(column: 'status', value: 'active');
 
-        $this->assertEmpty($original->build()->getSpecifications());
+        Assert::blank($original->build()->getSpecifications());
     }
 
-    #[Test]
     public function orderByIsImmutableDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create();
         $original->orderBy(columns: ['x' => 'ASC']);
 
-        $this->assertEmpty($original->build()->getSpecifications());
+        Assert::blank($original->build()->getSpecifications());
     }
 
-    #[Test]
     public function limitIsImmutableDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create();
         $original->limit(limit: 10);
 
-        $this->assertEmpty($original->build()->getSpecifications());
+        Assert::blank($original->build()->getSpecifications());
     }
 
-    #[Test]
     public function offsetIsImmutableDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create();
         $original->offset(offset: 5);
 
-        $this->assertEmpty($original->build()->getSpecifications());
+        Assert::blank($original->build()->getSpecifications());
     }
 
-    #[Test]
     public function orWhereDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create()
             ->whereEqual(column: 'status', value: 'active');
 
         $originalSpecs = $original->build()->getSpecifications();
-        $this->assertCount(1, $originalSpecs);
+        Assert::count($originalSpecs, 1);
 
         $modified = $original->orWhere(callback: function (SpecificationBuilder $builder): void {
             $builder->whereEqual(column: 'type', value: 'email');
         });
 
         $originalSpecsAfter = $original->build()->getSpecifications();
-        $this->assertCount(1, $originalSpecsAfter);
-        $this->assertInstanceOf(ComparisonSpecification::class, $originalSpecsAfter[0]);
-        $this->assertSame('active', $originalSpecsAfter[0]->getValue());
+        Assert::count($originalSpecsAfter, 1);
+        $spec = $originalSpecsAfter[0];
+        Assert::instanceOf($spec, ComparisonSpecification::class);
+        Assert::same($spec->getValue(), 'active');
 
         $modifiedSpecs = $modified->build()->getSpecifications();
-        $this->assertInstanceOf(OrSpecification::class, $modifiedSpecs[0]);
-        $this->assertCount(2, $modifiedSpecs[0]->getSpecifications());
+        /** @var OrSpecification $modifiedOr */
+        $modifiedOr = $modifiedSpecs[0];
+        Assert::instanceOf($modifiedOr, OrSpecification::class);
+        Assert::count($modifiedOr->getSpecifications(), 2);
     }
 
-    #[Test]
     public function notWhereDoesNotModifyOriginal(): void
     {
         $original = SpecificationBuilder::create()
@@ -444,6 +428,6 @@ final class SpecificationBuilderTest extends TestCase
         });
 
         $originalSpecs = $original->build()->getSpecifications();
-        $this->assertCount(1, $originalSpecs);
+        Assert::count($originalSpecs, 1);
     }
 }

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\NotSpecification;
@@ -16,162 +13,133 @@ use Rasuvaeff\Specification\RawSpecification;
 use Rasuvaeff\Specification\SpecificationVisitor;
 use ReflectionClass;
 use ReflectionMethod;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Test;
 
+#[Test]
 #[CoversNothing]
-final class SpecificationVisitorTest extends TestCase
+final class SpecificationVisitorTest
 {
-    #[Test]
     public function interfaceContract(): void
     {
         $reflection = new ReflectionClass(objectOrClass: SpecificationVisitor::class);
 
-        $this->assertTrue($reflection->isInterface());
+        Assert::true($reflection->isInterface());
 
         $docComment = $reflection->getDocComment();
-        $this->assertIsString($docComment);
-        $this->assertStringContainsString('@template T', $docComment);
+        Assert::true(is_string($docComment));
+        Assert::string($docComment)->contains('@template T');
 
         $methods = $reflection->getMethods();
-        $this->assertCount(9, $methods);
+        Assert::count($methods, 9);
 
-        // Verify the visitComparison method
-        $this->assertTrue($reflection->hasMethod(name: 'visitComparison'));
+        Assert::true($reflection->hasMethod(name: 'visitComparison'));
         $visitComparisonMethod = $reflection->getMethod(name: 'visitComparison');
 
-        // The return type should be mixed (it is the template type T)
         $returnType = $visitComparisonMethod->getReturnType();
-        $this->assertNull($returnType, "Method visitComparison should not have declared return type (uses template T)");
+        Assert::null($returnType);
 
         $methodDocComment = $visitComparisonMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
 
         $parameters = $visitComparisonMethod->getParameters();
-        $this->assertCount(1, $parameters);
+        Assert::count($parameters, 1);
 
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(ComparisonSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), ComparisonSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
-        // Verify the visitComposite method
-        $this->assertTrue($reflection->hasMethod(name: 'visitComposite'));
+        Assert::true($reflection->hasMethod(name: 'visitComposite'));
         $visitCompositeMethod = $reflection->getMethod(name: 'visitComposite');
-
-        $returnType = $visitCompositeMethod->getReturnType();
-        $this->assertNull($returnType);
-
+        Assert::null($visitCompositeMethod->getReturnType());
         $methodDocComment = $visitCompositeMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
-
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
         $parameters = $visitCompositeMethod->getParameters();
-        $this->assertCount(1, $parameters);
-
+        Assert::count($parameters, 1);
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(CompositeSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), CompositeSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
-        // Verify the visitNot method
-        $this->assertTrue($reflection->hasMethod(name: 'visitNot'));
+        Assert::true($reflection->hasMethod(name: 'visitNot'));
         $visitNotMethod = $reflection->getMethod(name: 'visitNot');
-
-        $returnType = $visitNotMethod->getReturnType();
-        $this->assertNull($returnType);
-
+        Assert::null($visitNotMethod->getReturnType());
         $methodDocComment = $visitNotMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
-
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
         $parameters = $visitNotMethod->getParameters();
-        $this->assertCount(1, $parameters);
-
+        Assert::count($parameters, 1);
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(NotSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), NotSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
-        // Verify the visitOr method
-        $this->assertTrue($reflection->hasMethod(name: 'visitOr'));
+        Assert::true($reflection->hasMethod(name: 'visitOr'));
         $visitOrMethod = $reflection->getMethod(name: 'visitOr');
-
-        $returnType = $visitOrMethod->getReturnType();
-        $this->assertNull($returnType);
-
+        Assert::null($visitOrMethod->getReturnType());
         $methodDocComment = $visitOrMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
-
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
         $parameters = $visitOrMethod->getParameters();
-        $this->assertCount(1, $parameters);
-
+        Assert::count($parameters, 1);
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(OrSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), OrSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
-        // Verify the visitOrCondition method
-        $this->assertTrue($reflection->hasMethod(name: 'visitOrCondition'));
+        Assert::true($reflection->hasMethod(name: 'visitOrCondition'));
         $visitOrConditionMethod = $reflection->getMethod(name: 'visitOrCondition');
-
-        $returnType = $visitOrConditionMethod->getReturnType();
-        $this->assertNull($returnType);
-
+        Assert::null($visitOrConditionMethod->getReturnType());
         $methodDocComment = $visitOrConditionMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
-
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
         $parameters = $visitOrConditionMethod->getParameters();
-        $this->assertCount(1, $parameters);
-
+        Assert::count($parameters, 1);
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(OrConditionSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), OrConditionSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
-        // Verify the visitRaw method
-        $this->assertTrue($reflection->hasMethod(name: 'visitRaw'));
+        Assert::true($reflection->hasMethod(name: 'visitRaw'));
         $visitRawMethod = $reflection->getMethod(name: 'visitRaw');
-
-        $returnType = $visitRawMethod->getReturnType();
-        $this->assertNull($returnType);
-
+        Assert::null($visitRawMethod->getReturnType());
         $methodDocComment = $visitRawMethod->getDocComment();
-        $this->assertIsString($methodDocComment);
-        $this->assertStringContainsString('@return T', $methodDocComment);
-
+        Assert::true(is_string($methodDocComment));
+        Assert::string($methodDocComment)->contains('@return T');
         $parameters = $visitRawMethod->getParameters();
-        $this->assertCount(1, $parameters);
-
+        Assert::count($parameters, 1);
         $firstParam = $parameters[0];
-        $this->assertSame('specification', $firstParam->getName());
+        Assert::same($firstParam->getName(), 'specification');
         $paramType = $firstParam->getType();
-        $this->assertInstanceOf(\ReflectionNamedType::class, $paramType);
-        $this->assertSame(RawSpecification::class, $paramType->getName());
-        $this->assertFalse($firstParam->isOptional());
-        $this->assertFalse($firstParam->isDefaultValueAvailable());
-        $this->assertFalse($firstParam->allowsNull());
+        Assert::instanceOf($paramType, \ReflectionNamedType::class);
+        Assert::same($paramType->getName(), RawSpecification::class);
+        Assert::false($firstParam->isOptional());
+        Assert::false($firstParam->isDefaultValueAvailable());
+        Assert::false($firstParam->allowsNull());
 
         $methodNames = array_map(
             callback: static fn(ReflectionMethod $method): string => $method->getName(),
@@ -191,7 +159,7 @@ final class SpecificationVisitorTest extends TestCase
         ];
 
         foreach ($expectedMethods as $expectedMethod) {
-            $this->assertContains($expectedMethod, $methodNames);
+            Assert::contains($methodNames, $expectedMethod);
         }
     }
 }

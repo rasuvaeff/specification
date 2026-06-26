@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace Rasuvaeff\Specification\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Specification\ComparisonSpecification;
-use Rasuvaeff\Specification\SpecificationVisitor;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Expect;
+use Testo\Test;
 
-#[CoversClass(ComparisonSpecification::class)]
-final class ComparisonSpecificationTest extends TestCase
+#[Test]
+#[Covers(ComparisonSpecification::class)]
+final class ComparisonSpecificationTest
 {
-    #[Test]
     public function constructorWithValidOperator(): void
     {
         $spec = new ComparisonSpecification(
@@ -24,12 +24,11 @@ final class ComparisonSpecificationTest extends TestCase
             operator: '>',
         );
 
-        $this->assertSame('age', $spec->getColumn());
-        $this->assertSame(25, $spec->getValue());
-        $this->assertSame('>', $spec->getOperator());
+        Assert::same($spec->getColumn(), 'age');
+        Assert::same($spec->getValue(), 25);
+        Assert::same($spec->getOperator(), '>');
     }
 
-    #[Test]
     public function constructorWithDefaultOperator(): void
     {
         $spec = new ComparisonSpecification(
@@ -37,14 +36,12 @@ final class ComparisonSpecificationTest extends TestCase
             value: 'John',
         );
 
-        $this->assertSame('=', $spec->getOperator());
+        Assert::same($spec->getOperator(), '=');
     }
 
-    #[Test]
     public function throwsExceptionForInvalidOperator(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid operator "invalid_op"');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Invalid operator "invalid_op"');
 
         new ComparisonSpecification(
             column: 'age',
@@ -53,19 +50,16 @@ final class ComparisonSpecificationTest extends TestCase
         );
     }
 
-    #[Test]
     public function acceptsVisitor(): void
     {
         $spec = new ComparisonSpecification(column: 'age', value: 25);
-        $visitor = $this->createMock(SpecificationVisitor::class);
-
-        $visitor->expects($this->once())
-            ->method('visitComparison')
-            ->with($spec)
-            ->willReturn('result');
+        $visitor = new FakeVisitor(returnValue: 'result');
 
         $result = $spec->accept(visitor: $visitor);
-        $this->assertSame('result', $result);
+
+        Assert::same($visitor->lastMethod, 'visitComparison');
+        Assert::same($visitor->lastArg, $spec);
+        Assert::same($result, 'result');
     }
 
     // ---------- Null values ----------
@@ -83,12 +77,12 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('nullAllowedOperatorsProvider')]
-    #[Test]
     public function nullValueAllowed(string $operator): void
     {
         $spec = new ComparisonSpecification(column: 'col', value: null, operator: $operator);
-        $this->assertSame($operator, $spec->getOperator());
-        $this->assertNull($spec->getValue());
+
+        Assert::same($spec->getOperator(), $operator);
+        Assert::null($spec->getValue());
     }
 
     /** @return list<array{string}> */
@@ -111,11 +105,10 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('nullDisallowedOperatorsProvider')]
-    #[Test]
     public function nullValueDisallowed(string $operator): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('cannot be used with NULL value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('cannot be used with NULL value');
+
         new ComparisonSpecification(column: 'col', value: null, operator: $operator);
     }
 
@@ -133,12 +126,12 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('validArrayOperatorsProvider')]
-    #[Test]
     public function validArrayOperators(string $operator, array $value): void
     {
         $spec = new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
-        $this->assertSame($operator, $spec->getOperator());
-        $this->assertSame($value, $spec->getValue());
+
+        Assert::same($spec->getOperator(), $operator);
+        Assert::same($spec->getValue(), $value);
     }
 
     /** @return list<array{string, string|int|bool}> */
@@ -161,11 +154,10 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('invalidArrayOperatorsProvider')]
-    #[Test]
     public function arrayOperatorsRequireArray(string $operator, string|int|bool $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('requires array value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('requires array value');
+
         new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
     }
 
@@ -183,11 +175,10 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('betweenElementCountProvider')]
-    #[Test]
     public function betweenRequiresExactlyTwoElements(string $operator, array $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('requires array with exactly two values');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('requires array with exactly two values');
+
         new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
     }
 
@@ -205,12 +196,12 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('validStringOperatorsProvider')]
-    #[Test]
     public function validStringOperators(string $operator, string $value): void
     {
         $spec = new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
-        $this->assertSame($operator, $spec->getOperator());
-        $this->assertSame($value, $spec->getValue());
+
+        Assert::same($spec->getOperator(), $operator);
+        Assert::same($spec->getValue(), $value);
     }
 
     /** @return list<array{string, int|bool|array<never, never>}> */
@@ -233,11 +224,10 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('invalidStringOperatorsProvider')]
-    #[Test]
     public function stringOperatorsRequireString(string $operator, int|bool|array $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('requires string value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('requires string value');
+
         new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
     }
 
@@ -266,188 +256,173 @@ final class ComparisonSpecificationTest extends TestCase
     }
 
     #[DataProvider('generalOperatorsProvider')]
-    #[Test]
     public function generalOperators(string $operator, string|int|float|bool|null $value): void
     {
         $spec = new ComparisonSpecification(column: 'col', value: $value, operator: $operator);
-        $this->assertSame($operator, $spec->getOperator());
-        $this->assertSame($value, $spec->getValue());
+
+        Assert::same($spec->getOperator(), $operator);
+        Assert::same($spec->getValue(), $value);
     }
 
-    #[Test]
     public function operatorCaseInsensitivity(): void
     {
-        // LIKE accepts a string value
         $spec = new ComparisonSpecification(column: 'col', value: 'test', operator: 'LIKE');
-        $this->assertSame('like', $spec->getOperator());
+        Assert::same($spec->getOperator(), 'like');
 
         $spec2 = new ComparisonSpecification(column: 'col', value: [1, 10], operator: 'BETWEEN');
-        $this->assertSame('between', $spec2->getOperator());
+        Assert::same($spec2->getOperator(), 'between');
     }
 
     // ---------- Factory methods ----------
 
-    #[Test]
     public function factoryMethods(): void
     {
         $equal = ComparisonSpecification::equal(column: 'col', value: 'val');
-        $this->assertSame('=', $equal->getOperator());
-        $this->assertSame('val', $equal->getValue());
+        Assert::same($equal->getOperator(), '=');
+        Assert::same($equal->getValue(), 'val');
 
         $notEqual = ComparisonSpecification::notEqual(column: 'col', value: 'val');
-        $this->assertSame('!=', $notEqual->getOperator());
+        Assert::same($notEqual->getOperator(), '!=');
 
         $greaterThan = ComparisonSpecification::greaterThan(column: 'col', value: 5);
-        $this->assertSame('>', $greaterThan->getOperator());
+        Assert::same($greaterThan->getOperator(), '>');
 
         $greaterThanOrEqual = ComparisonSpecification::greaterThanOrEqual(column: 'col', value: 5);
-        $this->assertSame('>=', $greaterThanOrEqual->getOperator());
+        Assert::same($greaterThanOrEqual->getOperator(), '>=');
 
         $lessThan = ComparisonSpecification::lessThan(column: 'col', value: 5);
-        $this->assertSame('<', $lessThan->getOperator());
+        Assert::same($lessThan->getOperator(), '<');
 
         $lessThanOrEqual = ComparisonSpecification::lessThanOrEqual(column: 'col', value: 5);
-        $this->assertSame('<=', $lessThanOrEqual->getOperator());
+        Assert::same($lessThanOrEqual->getOperator(), '<=');
 
         $like = ComparisonSpecification::like(column: 'col', pattern: '%pattern%');
-        $this->assertSame('like', $like->getOperator());
+        Assert::same($like->getOperator(), 'like');
 
         $notLike = ComparisonSpecification::notLike(column: 'col', pattern: '%pattern%');
-        $this->assertSame('not like', $notLike->getOperator());
+        Assert::same($notLike->getOperator(), 'not like');
 
         $ilike = ComparisonSpecification::ilike(column: 'col', pattern: '%pattern%');
-        $this->assertSame('ilike', $ilike->getOperator());
+        Assert::same($ilike->getOperator(), 'ilike');
 
         $notIlike = ComparisonSpecification::notIlike(column: 'col', pattern: '%pattern%');
-        $this->assertSame('not ilike', $notIlike->getOperator());
+        Assert::same($notIlike->getOperator(), 'not ilike');
 
         $in = ComparisonSpecification::in(column: 'col', values: [1, 2, 3]);
-        $this->assertSame('in', $in->getOperator());
-        $this->assertSame([1, 2, 3], $in->getValue());
+        Assert::same($in->getOperator(), 'in');
+        Assert::same($in->getValue(), [1, 2, 3]);
 
         $notIn = ComparisonSpecification::notIn(column: 'col', values: [1, 2, 3]);
-        $this->assertSame('not in', $notIn->getOperator());
+        Assert::same($notIn->getOperator(), 'not in');
 
         $between = ComparisonSpecification::between(column: 'col', from: 10, to: 20);
-        $this->assertSame('between', $between->getOperator());
-        $this->assertSame([10, 20], $between->getValue());
+        Assert::same($between->getOperator(), 'between');
+        Assert::same($between->getValue(), [10, 20]);
 
         $notBetween = ComparisonSpecification::notBetween(column: 'col', from: 10, to: 20);
-        $this->assertSame('not between', $notBetween->getOperator());
+        Assert::same($notBetween->getOperator(), 'not between');
 
         $isNull = ComparisonSpecification::isNull(column: 'col');
-        $this->assertSame('is', $isNull->getOperator());
-        $this->assertNull($isNull->getValue());
+        Assert::same($isNull->getOperator(), 'is');
+        Assert::null($isNull->getValue());
 
         $isNotNull = ComparisonSpecification::isNotNull(column: 'col');
-        $this->assertSame('is not', $isNotNull->getOperator());
-        $this->assertNull($isNotNull->getValue());
+        Assert::same($isNotNull->getOperator(), 'is not');
+        Assert::null($isNotNull->getValue());
 
         $startsWith = ComparisonSpecification::startsWith(column: 'col', prefix: 'pre');
-        $this->assertSame('like', $startsWith->getOperator());
-        $this->assertSame('pre%', $startsWith->getValue());
+        Assert::same($startsWith->getOperator(), 'like');
+        Assert::same($startsWith->getValue(), 'pre%');
 
         $endsWith = ComparisonSpecification::endsWith(column: 'col', suffix: 'suf');
-        $this->assertSame('like', $endsWith->getOperator());
-        $this->assertSame('%suf', $endsWith->getValue());
+        Assert::same($endsWith->getOperator(), 'like');
+        Assert::same($endsWith->getValue(), '%suf');
 
         $contains = ComparisonSpecification::contains(column: 'col', substring: 'sub');
-        $this->assertSame('like', $contains->getOperator());
-        $this->assertSame('%sub%', $contains->getValue());
+        Assert::same($contains->getOperator(), 'like');
+        Assert::same($contains->getValue(), '%sub%');
     }
 
-    #[Test]
     public function stringOperators(): void
     {
         $like = ComparisonSpecification::like(column: 'name', pattern: '%john%');
-        $this->assertSame('like', $like->getOperator());
+        Assert::same($like->getOperator(), 'like');
 
         $notLike = ComparisonSpecification::notLike(column: 'name', pattern: '%admin%');
-        $this->assertSame('not like', $notLike->getOperator());
+        Assert::same($notLike->getOperator(), 'not like');
 
         $ilike = ComparisonSpecification::ilike(column: 'name', pattern: '%john%');
-        $this->assertSame('ilike', $ilike->getOperator());
+        Assert::same($ilike->getOperator(), 'ilike');
 
         $notIlike = ComparisonSpecification::notIlike(column: 'name', pattern: '%admin%');
-        $this->assertSame('not ilike', $notIlike->getOperator());
+        Assert::same($notIlike->getOperator(), 'not ilike');
     }
 
-    #[Test]
     public function patternHelpers(): void
     {
         $startsWith = ComparisonSpecification::startsWith(column: 'name', prefix: 'John');
-        $this->assertSame('like', $startsWith->getOperator());
-        $this->assertSame('John%', $startsWith->getValue());
+        Assert::same($startsWith->getOperator(), 'like');
+        Assert::same($startsWith->getValue(), 'John%');
 
         $endsWith = ComparisonSpecification::endsWith(column: 'name', suffix: 'Doe');
-        $this->assertSame('%Doe', $endsWith->getValue());
+        Assert::same($endsWith->getValue(), '%Doe');
 
         $contains = ComparisonSpecification::contains(column: 'name', substring: 'oh');
-        $this->assertSame('%oh%', $contains->getValue());
+        Assert::same($contains->getValue(), '%oh%');
     }
 
-    #[Test]
     public function arrayOperators(): void
     {
         $in = ComparisonSpecification::in(column: 'status', values: ['active', 'pending']);
-        $this->assertSame('in', $in->getOperator());
-        $this->assertSame(['active', 'pending'], $in->getValue());
+        Assert::same($in->getOperator(), 'in');
+        Assert::same($in->getValue(), ['active', 'pending']);
 
         $notIn = ComparisonSpecification::notIn(column: 'status', values: ['deleted', 'archived']);
-        $this->assertSame('not in', $notIn->getOperator());
+        Assert::same($notIn->getOperator(), 'not in');
 
         $between = ComparisonSpecification::between(column: 'age', from: 18, to: 65);
-        $this->assertSame('between', $between->getOperator());
-        $this->assertSame([18, 65], $between->getValue());
+        Assert::same($between->getOperator(), 'between');
+        Assert::same($between->getValue(), [18, 65]);
 
         $notBetween = ComparisonSpecification::notBetween(column: 'age', from: 18, to: 65);
-        $this->assertSame('not between', $notBetween->getOperator());
+        Assert::same($notBetween->getOperator(), 'not between');
     }
 
-    #[Test]
     public function nullOperators(): void
     {
         $isNull = ComparisonSpecification::isNull(column: 'deleted_at');
-        $this->assertSame('is', $isNull->getOperator());
-        $this->assertNull($isNull->getValue());
+        Assert::same($isNull->getOperator(), 'is');
+        Assert::null($isNull->getValue());
 
         $isNotNull = ComparisonSpecification::isNotNull(column: 'deleted_at');
-        $this->assertSame('is not', $isNotNull->getOperator());
-        $this->assertNull($isNotNull->getValue());
+        Assert::same($isNotNull->getOperator(), 'is not');
+        Assert::null($isNotNull->getValue());
     }
 
-    #[Test]
     public function validationWithNullValue(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Operator ">" cannot be used with NULL value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator ">" cannot be used with NULL value');
 
         new ComparisonSpecification(column: 'age', value: null, operator: '>');
     }
 
-    #[Test]
     public function validationArrayOperatorsRequireArray(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Operator "in" requires array value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "in" requires array value');
 
         new ComparisonSpecification(column: 'status', value: 'active', operator: 'in');
     }
 
-    #[Test]
     public function validationBetweenRequiresTwoValues(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Operator "between" requires array with exactly two values');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "between" requires array with exactly two values');
 
         new ComparisonSpecification(column: 'age', value: [18], operator: 'between');
     }
 
-    #[Test]
     public function validationStringOperatorsRequireString(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Operator "like" requires string value');
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "like" requires string value');
 
         new ComparisonSpecification(column: 'name', value: 123, operator: 'like');
     }
