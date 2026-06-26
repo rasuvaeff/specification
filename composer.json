@@ -39,6 +39,7 @@
         "maglnet/composer-require-checker": "^4.17",
         "rector/rector": "^2.4",
         "roave/backward-compatibility-check": "^8.0",
+        "testo/bench": "^0.1.5",
         "testo/bridge-infection": "^0.1.6",
         "testo/testo": "^0.10.25",
         "vimeo/psalm": "^6.16",
@@ -53,6 +54,7 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "Rasuvaeff\\Specification\\Benchmarks\\": "benchmarks/",
             "Rasuvaeff\\Specification\\Tests\\": "tests/"
         }
     },
@@ -69,6 +71,7 @@
     },
     "scripts": {
         "bc-check": "roave-backward-compatibility-check",
+        "bench": "testo -vv",
         "build": [
             "@composer validate --strict",
             "@composer normalize --dry-run",
