@@ -6,6 +6,9 @@ namespace Rasuvaeff\Specification\Tests;
 
 use DateTimeImmutable;
 use InvalidArgumentException;
+use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Gen;
+use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\LimitSpecification;
@@ -573,5 +576,68 @@ final class QueryBuildingVisitorTest
         $modifiedSpecs = $modified->build()->getSpecifications();
         Assert::count($modifiedSpecs, 1);
         Assert::instanceOf($modifiedSpecs[0], OrSpecification::class);
+    }
+
+    #[Property(runs: 300)]
+    public function scalarComparisonBuildsOperatorColumnValueTriple(string $column, string $operator, int $value): void
+    {
+        $query = $this->makeQuery();
+        (new ComparisonSpecification(column: $column, value: $value, operator: $operator))
+            ->accept(new QueryBuildingVisitor(query: $query));
+
+        Assert::same($query->getWhere(), [$operator, $column, $value]);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function scalarComparisonBuildsOperatorColumnValueTripleGenerators(): array
+    {
+        return [
+            'column' => Gen::oneOf('age', 'price', 'user_id', 'score', 'created_at'),
+            'operator' => Gen::oneOf('=', '!=', '<>', '>', '>=', '<', '<='),
+            'value' => Gen::int(),
+        ];
+    }
+
+    #[Property(runs: 300)]
+    public function betweenBuildsConditionWithBothBounds(string $column, int $from, int $to): void
+    {
+        $query = $this->makeQuery();
+        (new ComparisonSpecification(column: $column, value: [$from, $to], operator: 'between'))
+            ->accept(new QueryBuildingVisitor(query: $query));
+
+        Assert::same($query->getWhere(), ['between', $column, $from, $to]);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function betweenBuildsConditionWithBothBoundsGenerators(): array
+    {
+        return [
+            'column' => Gen::oneOf('age', 'price', 'score', 'ts'),
+            'from' => Gen::int(),
+            'to' => Gen::int(),
+        ];
+    }
+
+    #[Property(runs: 300)]
+    public function doubleNegationCollapsesToPlainCondition(string $column, int $value): void
+    {
+        $plain = $this->makeQuery();
+        $spec = new ComparisonSpecification(column: $column, value: $value, operator: '=');
+        $spec->accept(new QueryBuildingVisitor(query: $plain));
+
+        $doubleNot = $this->makeQuery();
+        (new NotSpecification(specification: new NotSpecification(specification: $spec)))
+            ->accept(new QueryBuildingVisitor(query: $doubleNot));
+
+        Assert::same($doubleNot->getWhere(), $plain->getWhere());
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    private function doubleNegationCollapsesToPlainConditionGenerators(): array
+    {
+        return [
+            'column' => Gen::oneOf('age', 'status', 'price'),
+            'value' => Gen::int(),
+        ];
     }
 }
