@@ -1,4 +1,5 @@
-# Расуваефф/спецификация
+# rasuvaeff/specification
+
 [![Latest Stable Version](https://poser.pugx.org/rasuvaeff/specification/v)](https://packagist.org/packages/rasuvaeff/specification)
 [![Total Downloads](https://poser.pugx.org/rasuvaeff/specification/downloads)](https://packagist.org/packages/rasuvaeff/specification)
 [![Build](https://github.com/rasuvaeff/specification/actions/workflows/build.yml/badge.svg)](https://github.com/rasuvaeff/specification/actions/workflows/build.yml)
@@ -6,7 +7,10 @@
 [![Psalm level](https://img.shields.io/badge/psalm-level_1-blue.svg)](https://github.com/rasuvaeff/specification/actions/workflows/static-analysis.yml)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/specification/php)](https://packagist.org/packages/rasuvaeff/specification)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE.md)
-Specification pattern for building [Yiisoft DB](https://github.com/yiisoft/db) queries.
+[English version](README.md)
+
+Паттерн Specification для построения запросов к [Yiisoft DB](https://github.com/yiisoft/db).
+
 ```php
 use Rasuvaeff\Specification\SpecificationBuilder;
 use Rasuvaeff\Specification\QueryApplier;
@@ -23,20 +27,27 @@ $query = (new \Yiisoft\Db\Query\Query($db))->from('users');
 QueryApplier::apply($spec, $query);
 $rows = $query->all();
 ```
-> **Используете помощника по кодированию с помощью искусственного интеллекта?** [`llms.txt`](llms.txt) — это компактный
- > автономный справочник по всему общедоступному API плюс рецепты копирования и вставки —
- > поместите его в контекст модели. Авторы: см. [`AGENTS.md`](AGENTS.md). @@ЛИНИЯ@@
+
+> **Используете AI-ассистента?** [`llms.txt`](llms.txt) — компактный
+> самодостаточный справочник по всему публичному API плюс готовые рецепты —
+> добавьте его в контекст модели. Контрибьюторам: см. [`AGENTS.md`](AGENTS.md).
+
 ## Требования
+
 - PHP 8.3+
- - `yiisoft/db` ^2.0.1
+- `yiisoft/db` ^2.0.1
 
 ## Установка
+
 ```
 composer require rasuvaeff/specification
 ```
+
 ## Использование
-### Разработчик спецификаций
-Свободный конструктор для составления условий запроса:
+
+### SpecificationBuilder
+
+Fluent-билдер для композиции условий запроса:
 
 ```php
 use Rasuvaeff\Specification\SpecificationBuilder;
@@ -52,37 +63,40 @@ $query = (new Yiisoft\Db\Query\Query($db))->from('users');
 QueryApplier::apply($spec, $query);
 $rows = $query->all();
 ```
+
 Доступные методы:
 
- | Метод | SQL-эквивалент |
- |--------|---------------|
- | `где($col, $val, $op)` | `col op val` (любой оператор) |
- | `whereEqual($col, $val)` | `col = значение` |
- | `whereNotEqual($col, $val)` | `col != значение` |
- | `whereGreaterThan($col, $val)` | `col > val` |
- | `whereGreaterThanOrEqual($col, $val)` | `col >= val` |
- | `whereLessThan($col, $val)` | `col <значение` |
- | `whereLessThanOrEqual($col, $val)` | `col <= значение` |
- | `whereIn($col, $values)` | `col IN (значения)` |
- | `whereNotIn($col, $values)` | `столбец НЕ ВХОДИТ (значения)` |
- | `whereLike($col, $pattern)` | `шаблон col LIKE` |
- | `whereNotLike($col, $pattern)` | `col NOT LIKE шаблон` |
- | `whereBetween($col, $from, $to)` | `col BETWEEN from AND to` |
- | `whereNotBetween($col, $from, $to)` | `col NOT BETWEEN from AND to` |
- | `whereIlike($col, $pattern)` | `шаблон col ILIKE` |
- | `whereNotIlike($col, $pattern)` | `цвет НЕ НРАВИТСЯ шаблон` |
- | `whereStartsWith($col, $prefix)` | `col LIKE префикс%` |
- | `whereEndsWith($col, $suffix)` | `col LIKE %suffix` |
- | `whereContains($col, $substring)` | `col LIKE %substring%` |
- | `whereNull($col)` | `col IS NULL` |
- | `whereNotNull($col)` | `col НЕ NULL` |
- | `илиГде(вызываемый)` | `ИЛИ (вложенные условия)` |
- | `notWhere(вызываемый)` | `НЕ (вложенные условия)` |
- | `orderBy($columns)` | `ORDER BY col [ASC\|DESC]` |
- | `предел($n)` | `ОГРАНИЧЕНИЕ n` |
- | `смещение($n)` | `СМЕЩ n` | @@ЛИНИЯ@@
-### Технические характеристики
-Строительные блоки для составления сложных условий:
+| Метод | SQL-эквивалент |
+|--------|---------------|
+| `where($col, $val, $op)` | `col op val` (любой оператор) |
+| `whereEqual($col, $val)` | `col = val` |
+| `whereNotEqual($col, $val)` | `col != val` |
+| `whereGreaterThan($col, $val)` | `col > val` |
+| `whereGreaterThanOrEqual($col, $val)` | `col >= val` |
+| `whereLessThan($col, $val)` | `col < val` |
+| `whereLessThanOrEqual($col, $val)` | `col <= val` |
+| `whereIn($col, $values)` | `col IN (values)` |
+| `whereNotIn($col, $values)` | `col NOT IN (values)` |
+| `whereLike($col, $pattern)` | `col LIKE pattern` |
+| `whereNotLike($col, $pattern)` | `col NOT LIKE pattern` |
+| `whereBetween($col, $from, $to)` | `col BETWEEN from AND to` |
+| `whereNotBetween($col, $from, $to)` | `col NOT BETWEEN from AND to` |
+| `whereIlike($col, $pattern)` | `col ILIKE pattern` |
+| `whereNotIlike($col, $pattern)` | `col NOT ILIKE pattern` |
+| `whereStartsWith($col, $prefix)` | `col LIKE prefix%` |
+| `whereEndsWith($col, $suffix)` | `col LIKE %suffix` |
+| `whereContains($col, $substring)` | `col LIKE %substring%` |
+| `whereNull($col)` | `col IS NULL` |
+| `whereNotNull($col)` | `col IS NOT NULL` |
+| `orWhere(callable)` | `OR (nested conditions)` |
+| `notWhere(callable)` | `NOT (nested conditions)` |
+| `orderBy($columns)` | `ORDER BY col [ASC\|DESC]` |
+| `limit($n)` | `LIMIT n` |
+| `offset($n)` | `OFFSET n` |
+
+### Specifications
+
+Строительные блоки для композиции сложных условий:
 
 ```php
 use Rasuvaeff\Specification\ComparisonSpecification;
@@ -128,7 +142,9 @@ $offset = CompositeSpecification::create()
 $rawComposite = CompositeSpecification::create()
     ->withRaw('price > :min AND price < :max', ['min' => 10, 'max' => 100]);
 ```
-### Фабричные методы сравнения и спецификации
+
+### Фабричные методы ComparisonSpecification
+
 ```php
 ComparisonSpecification::equal('col', $val)
 ComparisonSpecification::notEqual('col', $val)
@@ -150,7 +166,9 @@ ComparisonSpecification::notBetween('col', $from, $to)
 ComparisonSpecification::isNull('col')
 ComparisonSpecification::isNotNull('col')
 ```
-### Пользовательский посетитель
+
+### Собственный visitor
+
 Реализуйте `SpecificationVisitor<T>` для обхода дерева спецификаций:
 
 ```php
@@ -173,31 +191,42 @@ final class CountingVisitor implements SpecificationVisitor
     //     visitOr, visitOrCondition, visitRaw, visitOrderBy, visitLimit, visitOffset)
 }
 ```
+
 ## Примеры
-Запускаемые автономные примеры (SQLite в памяти) находятся в [`examples/`](examples/):
- `builder.php` (AND/IN/BETWEEN) и `or-not-raw.php` (OR/NOT/raw/order+limit). @@ЛИНИЯ@@
+
+Запускаемые офлайн-примеры (in-memory SQLite) лежат в [`examples/`](examples/):
+`builder.php` (AND/IN/BETWEEN) и `or-not-raw.php` (OR/NOT/raw/order+limit).
+
 ```bash
 composer install && php examples/builder.php
 ```
-## Безопасность
-- **Значения параметризованы.** Все значения сравнения/IN/BETWEEN/LIKE привязаны
- как параметры к `yiisoft/db`, поэтому они защищены от SQL-инъекций.
- - **Имена столбцов не проверяются** — они передаются в `yiisoft/db` и заключаются в кавычки
- в качестве идентификаторов, но список разрешений отсутствует. Передавайте только **доверенные** имена столбцов
- (обычно жестко закодированные), но никогда не вводимые пользователем данные.
- — **`RawSpecification` — это необработанный выходной штрих.** Строка условия **не**
- экранирована — никогда не создавайте ее на основе ненадежных входных данных. Передавайте пользовательские значения только через
- карту `$params` (заполнители): `new RawSpecification('age > :age', ['age' => $value])`. @@ЛИНИЯ@@
-## Производительность
-`SpecificationBuilder` является неизменяемым — каждый вызов `where*()`, `limit()` и `offset()`
- клонирует построитель перед возвратом. Это безопасно и предсказуемо, но требует небольших накладных расходов
- (~3,3 мкс для 7-шаговой цепочки против ~2,4 мкс для прямой композиции `CompositeSpecification`
-). `orWhere()` дополнительно выделяет временный построитель и вызывает замыкание
- (~2,8 мкс против ~1,4 мкс для прямого `OrSpecification::create()`).
 
- Для большинства рабочих нагрузок веб-запросов (1–5 спецификаций на запрос, запросы к базе данных занимают 1–100 мс)
- эти издержки незначительны. Для **высокопроизводительной пакетной обработки**, когда спецификации
- построены в узком цикле, отдайте предпочтение прямому API `CompositeSpecification`:
+## Безопасность
+
+- **Значения параметризованы.** Все значения в сравнениях/IN/BETWEEN/LIKE
+  биндятся `yiisoft/db` как параметры, поэтому защищены от SQL-инъекций.
+- **Имена колонок не валидируются** — они передаются в `yiisoft/db` и
+  квотируются как идентификаторы, но allow-list'а нет. Передавайте только
+  **доверенные** имена колонок (как правило, захардкоженные), никогда — сырой
+  пользовательский ввод.
+- **`RawSpecification` — это сырой escape hatch.** Строка условия **не**
+  экранируется — никогда не собирайте её из недоверенного ввода. Пользовательские
+  значения передавайте только через карту `$params` (плейсхолдеры):
+  `new RawSpecification('age > :age', ['age' => $value])`.
+
+## Производительность
+
+`SpecificationBuilder` иммутабелен — каждый вызов `where*()`, `limit()` и
+`offset()` клонирует builder перед возвратом. Это безопасно и предсказуемо, но
+даёт небольшой оверхед (~3,3 мкс для 7-шаговой цепочки против ~2,4 мкс при прямой
+композиции через `CompositeSpecification`). `orWhere()` дополнительно выделяет
+временный builder и вызывает замыкание (~2,8 мкс против ~1,4 мкс у прямого
+`OrSpecification::create()`).
+
+Для большинства веб-нагрузок (1–5 спецификаций на запрос, запросы к БД занимают
+1–100 мс) этот оверхед пренебрежимо мал. Для **высоконагруженной пакетной
+обработки**, где спецификации строятся в плотном цикле, предпочитайте прямой API
+`CompositeSpecification`:
 
 ```php
 // ~26% faster than SpecificationBuilder for a 7-condition chain
@@ -214,17 +243,24 @@ $spec = CompositeSpecification::create()
         CompositeSpecification::create()->withComparison('status', 'pending'),
     ));
 ```
-Тесты находятся в `benchmarks/` и запускаются через `composer Bench` (требуется
+
+Бенчмарки лежат в `benchmarks/` и запускаются через `composer bench` (требуется
 [testo/bench](https://github.com/php-testo/testo)).
-## Примечания
-- `ilike`/`not ilike` специфичны для PostgreSQL; другие драйверы (например, MySQL)
- их не поддерживают. Используйте `like` для необходимости учета регистра в этих драйверах.
- — для условий ИЛИ используйте `OrSpecification` или `SpecificationBuilder::orWhere()`.
- `CompositeSpecification` компонуется с семантикой **И**.
- - форматы значений `withOrCondition()`: скаляр представляет собой простое равенство (`'status' => 'active'`);
- массив, первым элементом которого является известный оператор, является сокращением
- (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); любой другой массив рассматривается как значение
-, поэтому простой список (`'name' => ['a', 'b']`) становится условием `'IN`. Оператор
- сопоставляется без учета регистра. @@ЛИНИЯ@@
+
+## Замечания
+
+- `ilike`/`not ilike` специфичны для PostgreSQL; другие драйверы (например,
+  MySQL) их не поддерживают. Для case-insensitive-нужд на таких драйверах
+  используйте `like`.
+- Для OR-условий используйте `OrSpecification` либо `SpecificationBuilder::orWhere()`.
+  `CompositeSpecification` компонует с **AND**-семантикой.
+- Форматы значений `withOrCondition()`: скаляр — это plain equality
+  (`'status' => 'active'`); массив, первый элемент которого — известный оператор,
+  — сокращение (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); любой
+  другой массив трактуется как значение, поэтому простой список
+  (`'name' => ['a', 'b']`) становится условием `IN`. Оператор сопоставляется
+  case-insensitively.
+
 ## Лицензия
-BSD-3-пункт.
+
+BSD-3-Clause.
