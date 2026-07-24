@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-07-25
 
 - Ship an AI agent skill (`resources/skills/rasuvaeff-specification/SKILL.md`
   + `extra.skills` in composer.json): projects using the `llm/skills` Composer
