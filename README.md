@@ -31,6 +31,9 @@ $rows = $query->all();
 > **Using an AI coding assistant?** [`llms.txt`](llms.txt) is a compact,
 > self-contained reference of the whole public API plus copy-paste recipes —
 > drop it into the model's context. Contributors: see [`AGENTS.md`](AGENTS.md).
+> Projects using the [llm/skills](https://github.com/roxblnfk/skills) Composer
+> plugin also get this package's agent skill synced into `.agents/skills/`
+> automatically on install.
 
 ## Requirements
 
