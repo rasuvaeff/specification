@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Add a `zizmor` GitHub Actions security audit workflow and skip heavy CI jobs on irrelevant changes via a path-aware gate.
+
 ## 1.1.0 — 2026-07-25
 
 - Ship an AI agent skill (`resources/skills/rasuvaeff-specification/SKILL.md`
