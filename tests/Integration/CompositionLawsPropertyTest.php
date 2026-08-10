@@ -107,6 +107,34 @@ final class CompositionLawsPropertyTest
         );
     }
 
+    /**
+     * Named operands reused by the {@see *Examples()} methods below. The
+     * property engine runs each example tuple as an explicit call of the
+     * property body *before* the random phase, so a regression that breaks
+     * the law on a known edge case fails the test deterministically instead
+     * of waiting for 100+ random trials to hit it.
+     *
+     * Mutation proofs (issue #22) showed that dangerous regressions cluster
+     * around NOT-wrapped operands and empty-result intersections; the
+     * examples pin exactly those shapes.
+     *
+     * @return array<string, Specification>
+     */
+    private static function operandCatalog(): array
+    {
+        $active = ComparisonSpecification::equal(column: 'status', value: 'active');
+
+        return [
+            'active' => $active, // ids 1, 2, 4
+            'inactive' => ComparisonSpecification::equal(column: 'status', value: 'inactive'), // ids 3, 5
+            'pricey' => ComparisonSpecification::greaterThan(column: 'price', value: 20), // ids 3, 4, 5
+            'all' => ComparisonSpecification::greaterThanOrEqual(column: 'id', value: 1), // ids 1..5
+            'none' => ComparisonSpecification::lessThan(column: 'id', value: 1), // []
+            'notActive' => NotSpecification::create(specification: $active), // ids 3, 5
+            'doubleNeg' => NotSpecification::create(specification: NotSpecification::create(specification: $active)), // ids 1, 2, 4
+        ];
+    }
+
     #[Property(runs: 150)]
     public function andIsCommutative(Specification $a, Specification $b): void
     {
@@ -120,6 +148,21 @@ final class CompositionLawsPropertyTest
     public static function andIsCommutativeGenerators(): array
     {
         return ['a' => self::operand(), 'b' => self::operand()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification, 1: Specification}>
+     */
+    public static function andIsCommutativeExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'identity (same leaf twice)' => [$c['active'], $c['active']];
+        yield 'NOT-wrapped left' => [$c['notActive'], $c['inactive']];
+        yield 'NOT-wrapped right' => [$c['inactive'], $c['notActive']];
+        yield 'double negation' => [$c['doubleNeg'], $c['pricey']];
+        yield 'disjoint (empty intersection)' => [$c['active'], $c['inactive']];
+        yield 'universal vs empty' => [$c['all'], $c['none']];
     }
 
     #[Property(runs: 100)]
@@ -141,6 +184,18 @@ final class CompositionLawsPropertyTest
         return ['a' => self::operand(), 'b' => self::operand(), 'c' => self::operand()];
     }
 
+    /**
+     * @return iterable<array{0: Specification, 1: Specification, 2: Specification}>
+     */
+    public static function andIsAssociativeExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'all-empty parentheses collapse' => [$c['none'], $c['none'], $c['none']];
+        yield 'NOT-wrapped middle operand' => [$c['active'], $c['notActive'], $c['pricey']];
+        yield 'double negation as one operand' => [$c['doubleNeg'], $c['active'], $c['inactive']];
+    }
+
     #[Property(runs: 150)]
     public function orIsCommutative(Specification $a, Specification $b): void
     {
@@ -154,6 +209,18 @@ final class CompositionLawsPropertyTest
     public static function orIsCommutativeGenerators(): array
     {
         return ['a' => self::operand(), 'b' => self::operand()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification, 1: Specification}>
+     */
+    public static function orIsCommutativeExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'identity (same leaf twice)' => [$c['active'], $c['active']];
+        yield 'NOT-wrapped left' => [$c['notActive'], $c['inactive']];
+        yield 'disjoint union is full coverage' => [$c['active'], $c['inactive']];
     }
 
     #[Property(runs: 100)]
@@ -171,6 +238,17 @@ final class CompositionLawsPropertyTest
         return ['a' => self::operand(), 'b' => self::operand(), 'c' => self::operand()];
     }
 
+    /**
+     * @return iterable<array{0: Specification, 1: Specification, 2: Specification}>
+     */
+    public static function orIsAssociativeExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'all-empty union stays empty' => [$c['none'], $c['none'], $c['none']];
+        yield 'NOT-wrapped middle operand' => [$c['active'], $c['notActive'], $c['pricey']];
+    }
+
     #[Property(runs: 150)]
     public function andIsIdempotent(Specification $a): void
     {
@@ -183,6 +261,18 @@ final class CompositionLawsPropertyTest
     public static function andIsIdempotentGenerators(): array
     {
         return ['a' => self::operand()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification}>
+     */
+    public static function andIsIdempotentExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'empty result' => [$c['none']];
+        yield 'NOT-wrapped' => [$c['notActive']];
+        yield 'double negation' => [$c['doubleNeg']];
     }
 
     #[Property(runs: 150)]
@@ -202,6 +292,24 @@ final class CompositionLawsPropertyTest
         return ['a' => self::operand(), 'b' => self::operand()];
     }
 
+    /**
+     * Both sides of the law use the same NOT-handling path; mutation proof
+     * (issue #22) showed that an early return in {@see QueryBuildingVisitor::visitNot()}
+     * passes random search when both sides use the broken NOT identically,
+     * but a hand-written edge case catches it. These examples pin that.
+     *
+     * @return iterable<array{0: Specification, 1: Specification}>
+     */
+    public static function deMorganAndExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'both empty (truth-table extreme)' => [$c['none'], $c['none']];
+        yield 'both universal' => [$c['all'], $c['all']];
+        yield 'NOT-wrapped both sides' => [$c['notActive'], $c['notActive']];
+        yield 'double negation left' => [$c['doubleNeg'], $c['inactive']];
+    }
+
     #[Property(runs: 150)]
     public function deMorganOr(Specification $a, Specification $b): void
     {
@@ -217,6 +325,19 @@ final class CompositionLawsPropertyTest
     public static function deMorganOrGenerators(): array
     {
         return ['a' => self::operand(), 'b' => self::operand()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification, 1: Specification}>
+     */
+    public static function deMorganOrExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'both empty (truth-table extreme)' => [$c['none'], $c['none']];
+        yield 'both universal' => [$c['all'], $c['all']];
+        yield 'NOT-wrapped both sides' => [$c['notActive'], $c['notActive']];
+        yield 'double negation left' => [$c['doubleNeg'], $c['inactive']];
     }
 
     #[Property(runs: 100)]
@@ -237,5 +358,17 @@ final class CompositionLawsPropertyTest
     public static function distributiveGenerators(): array
     {
         return ['a' => self::operand(), 'b' => self::operand(), 'c' => self::operand()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification, 1: Specification, 2: Specification}>
+     */
+    public static function distributiveExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'a empty (left factor empty)' => [$c['none'], $c['active'], $c['inactive']];
+        yield 'b == c (a AND (b OR b) == a AND b)' => [$c['active'], $c['pricey'], $c['pricey']];
+        yield 'NOT-wrapped a' => [$c['notActive'], $c['active'], $c['inactive']];
     }
 }
