@@ -589,7 +589,7 @@ final class QueryBuildingVisitorTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function scalarComparisonBuildsOperatorColumnValueTripleGenerators(): array
+    public static function scalarComparisonBuildsOperatorColumnValueTripleGenerators(): array
     {
         return [
             'column' => Gen::oneOf('age', 'price', 'user_id', 'score', 'created_at'),
@@ -609,7 +609,7 @@ final class QueryBuildingVisitorTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function betweenBuildsConditionWithBothBoundsGenerators(): array
+    public static function betweenBuildsConditionWithBothBoundsGenerators(): array
     {
         return [
             'column' => Gen::oneOf('age', 'price', 'score', 'ts'),
@@ -633,7 +633,7 @@ final class QueryBuildingVisitorTest
     }
 
     /** @return array<string, ArbitraryInterface> */
-    private function doubleNegationCollapsesToPlainConditionGenerators(): array
+    public static function doubleNegationCollapsesToPlainConditionGenerators(): array
     {
         return [
             'column' => Gen::oneOf('age', 'status', 'price'),
