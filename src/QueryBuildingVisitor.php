@@ -6,6 +6,7 @@ namespace Rasuvaeff\Specification;
 
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Query\QueryInterface;
+use Yiisoft\Db\QueryBuilder\Condition\LikeMode;
 
 /**
  * @implements SpecificationVisitor<void>
@@ -13,6 +14,8 @@ use Yiisoft\Db\Query\QueryInterface;
  */
 final readonly class QueryBuildingVisitor implements SpecificationVisitor
 {
+    private const array LIKE_OPERATORS = ['like', 'not like', 'ilike', 'not ilike'];
+
     public function __construct(
         private QueryInterface $query,
     ) {}
@@ -52,6 +55,15 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
                     $specification->getColumn(),
                     $specification->getValue(),
                 ]);
+                break;
+
+            case 'like':
+            case 'not like':
+            case 'ilike':
+            case 'not ilike':
+                /** @var string $value the specification admits nothing else for a LIKE */
+                $value = $specification->getValue();
+                $this->query->andWhere($this->likeCondition($operator, $specification->getColumn(), $value, $specification->getLikeMatch()));
                 break;
 
             default:
@@ -146,8 +158,57 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
     {
         $conditions = $specification->getConditions();
         if ($conditions !== []) {
-            $this->query->andWhere(['or', ...$conditions]);
+            $this->query->andWhere(['or', ...array_map($this->normalizeOrCondition(...), $conditions)]);
         }
+    }
+
+    /**
+     * A LIKE written as `[operator, column, pattern]` carries the caller's
+     * wildcards in the pattern, so it is sent verbatim.
+     *
+     * @param array<array-key, mixed> $condition
+     * @return array<array-key, mixed>
+     */
+    private function normalizeOrCondition(array $condition): array
+    {
+        if (!array_is_list(array: $condition) || count(value: $condition) !== 3) {
+            return $condition;
+        }
+        [$operator, $column, $value] = $condition;
+        if (!is_string(value: $operator) || !is_string(value: $column) || !is_string(value: $value)) {
+            return $condition;
+        }
+        $operator = mb_strtolower(string: $operator);
+        if (!in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
+            return $condition;
+        }
+
+        return $this->likeCondition($operator, $column, $value, LikeMatch::Pattern);
+    }
+
+    /**
+     * yiisoft/db reads `mode`, `escape` and `caseSensitive` from named operands
+     * only and defaults to escaping the value and wrapping it in `%…%`. A
+     * pre-wildcarded value would search for a literal `%`, and `ilike` has no
+     * condition class of its own — it is `LIKE` with `caseSensitive: false`,
+     * which PostgreSQL renders as `ILIKE` and MySQL as a plain `LIKE`.
+     *
+     * @param 'like'|'not like'|'ilike'|'not ilike' $operator
+     * @return array<array-key, mixed>
+     */
+    private function likeCondition(string $operator, string $column, string $value, LikeMatch $likeMatch): array
+    {
+        $condition = [str_starts_with(haystack: $operator, needle: 'not ') ? 'not like' : 'like', $column, $value];
+        if (str_contains(haystack: $operator, needle: 'ilike')) {
+            $condition['caseSensitive'] = false;
+        }
+
+        return $condition + match ($likeMatch) {
+            LikeMatch::Pattern => ['mode' => LikeMode::Custom, 'escape' => false],
+            LikeMatch::StartsWith => ['mode' => LikeMode::StartsWith],
+            LikeMatch::EndsWith => ['mode' => LikeMode::EndsWith],
+            LikeMatch::Contains => ['mode' => LikeMode::Contains],
+        };
     }
 
     #[\Override]

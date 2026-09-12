@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Fixed
+
+- `startsWith()`, `endsWith()` and `contains()` searched for a literal `%`:
+  yiisoft/db ≥ 2.0 escapes the LIKE value and wraps it in `%…%` unless told
+  otherwise, so the wildcard the factory added was escaped. The three helpers
+  now hand a clean string to the builder with `mode: LikeMode::StartsWith`
+  / `EndsWith` / `Contains`, and `like()` / `notLike()` send the pattern
+  verbatim (`mode: Custom`, `escape: false`) — also for a `['like', col,
+  pattern]` entry of `withOrCondition()`. `ilike` / `not ilike` no longer
+  render a verbatim `ILIKE` (a syntax error outside PostgreSQL): they are
+  `LIKE` with `caseSensitive: false`. New `LikeMatch` enum,
+  `ComparisonSpecification::getLikeMatch()` and an optional `$likeMatch`
+  argument on the constructor, `CompositeSpecification::withComparison()`
+  and `SpecificationBuilder::where()`. A custom visitor that reads
+  `getValue()` of a `startsWith()` / `endsWith()` / `contains()` specification
+  now gets the bare string and must honour `getLikeMatch()` (#27).
+
 ### Changed
 
 - Add a `zizmor` GitHub Actions security audit workflow and skip heavy CI jobs on irrelevant changes via a path-aware gate.

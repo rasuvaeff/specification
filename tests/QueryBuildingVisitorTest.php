@@ -11,6 +11,7 @@ use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LikeMatch;
 use Rasuvaeff\Specification\LimitSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OffsetSpecification;
@@ -22,9 +23,11 @@ use Rasuvaeff\Specification\RawSpecification;
 use Rasuvaeff\Specification\SpecificationBuilder;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
 use Testo\Expect;
 use Testo\Test;
 use Yiisoft\Db\Query\Query;
+use Yiisoft\Db\QueryBuilder\Condition\LikeMode;
 
 use const SORT_ASC;
 use const SORT_DESC;
@@ -130,6 +133,62 @@ final class QueryBuildingVisitorTest
         Assert::same($query->getWhere(), ['or', ['status' => 'active'], ['>', 'age', 18]]);
     }
 
+    /**
+     * @param array<array-key, mixed> $condition
+     * @param array<array-key, mixed> $expected
+     */
+    #[DataProvider('orConditionLikeProvider')]
+    public function visitOrConditionSendsLikePatternsVerbatim(array $condition, array $expected): void
+    {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $spec = new OrConditionSpecification(conditions: [['status' => 'active'], $condition]);
+
+        $visitor->visitOrCondition(specification: $spec);
+
+        Assert::same($query->getWhere(), ['or', ['status' => 'active'], $expected]);
+    }
+
+    public static function orConditionLikeProvider(): iterable
+    {
+        yield 'like' => [
+            ['like', 'name', '%john%'],
+            ['like', 'name', '%john%', 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'NOT LIKE in upper case' => [
+            ['NOT LIKE', 'name', '%john%'],
+            ['not like', 'name', '%john%', 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'ilike' => [
+            ['ilike', 'name', '%john%'],
+            ['like', 'name', '%john%', 'caseSensitive' => false, 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'not ilike' => [
+            ['not ilike', 'name', '%john%'],
+            ['not like', 'name', '%john%', 'caseSensitive' => false, 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'a hash condition is untouched' => [
+            ['name' => 'john'],
+            ['name' => 'john'],
+        ];
+        yield 'another operator is untouched' => [
+            ['>', 'age', 18],
+            ['>', 'age', 18],
+        ];
+        yield 'a like with a non-string pattern is untouched' => [
+            ['like', 'name', 5],
+            ['like', 'name', 5],
+        ];
+        yield 'a like with a non-string column is untouched' => [
+            ['like', ['name'], 'x'],
+            ['like', ['name'], 'x'],
+        ];
+        yield 'a like with four operands is untouched' => [
+            ['like', 'name', 'x', 'y'],
+            ['like', 'name', 'x', 'y'],
+        ];
+    }
+
     public function visitOrConditionEmpty(): void
     {
         $query = $this->makeQuery();
@@ -220,15 +279,61 @@ final class QueryBuildingVisitorTest
         Assert::same($query->getWhere(), ['!=', 'name', 'John']);
     }
 
-    public function visitComparisonLikeOperator(): void
+    /**
+     * yiisoft/db escapes the value and wraps it in `%…%` unless told
+     * otherwise through named operands, so every LIKE carries them (#27).
+     *
+     * @param array<array-key, mixed> $expected
+     */
+    #[DataProvider('likeConditionProvider')]
+    public function visitComparisonLikeOperator(ComparisonSpecification $spec, array $expected): void
     {
         $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
-        $spec = new ComparisonSpecification(column: 'name', value: '%john%', operator: 'like');
 
         $visitor->visitComparison(specification: $spec);
 
-        Assert::same($query->getWhere(), ['like', 'name', '%john%']);
+        Assert::same($query->getWhere(), $expected);
+    }
+
+    public static function likeConditionProvider(): iterable
+    {
+        yield 'like sends the pattern verbatim' => [
+            new ComparisonSpecification(column: 'name', value: '%john%', operator: 'like'),
+            ['like', 'name', '%john%', 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'not like sends the pattern verbatim' => [
+            ComparisonSpecification::notLike(column: 'name', pattern: 'a_b%'),
+            ['not like', 'name', 'a_b%', 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'ilike is a case-insensitive like' => [
+            ComparisonSpecification::ilike(column: 'name', pattern: '%john%'),
+            ['like', 'name', '%john%', 'caseSensitive' => false, 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'not ilike is a case-insensitive not like' => [
+            ComparisonSpecification::notIlike(column: 'name', pattern: '%john%'),
+            ['not like', 'name', '%john%', 'caseSensitive' => false, 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'upper-case operator is normalized' => [
+            new ComparisonSpecification(column: 'name', value: 'x', operator: 'NOT ILIKE'),
+            ['not like', 'name', 'x', 'caseSensitive' => false, 'mode' => LikeMode::Custom, 'escape' => false],
+        ];
+        yield 'startsWith lets the builder add the wildcard' => [
+            ComparisonSpecification::startsWith(column: 'name', prefix: 'ab'),
+            ['like', 'name', 'ab', 'mode' => LikeMode::StartsWith],
+        ];
+        yield 'endsWith lets the builder add the wildcard' => [
+            ComparisonSpecification::endsWith(column: 'name', suffix: 'ab'),
+            ['like', 'name', 'ab', 'mode' => LikeMode::EndsWith],
+        ];
+        yield 'contains lets the builder add the wildcards' => [
+            ComparisonSpecification::contains(column: 'name', substring: 'ab'),
+            ['like', 'name', 'ab', 'mode' => LikeMode::Contains],
+        ];
+        yield 'a match mode combines with a case-insensitive operator' => [
+            new ComparisonSpecification(column: 'name', value: 'ab', operator: 'ilike', likeMatch: LikeMatch::Contains),
+            ['like', 'name', 'ab', 'caseSensitive' => false, 'mode' => LikeMode::Contains],
+        ];
     }
 
     public function visitComparisonDateTimeValue(): void

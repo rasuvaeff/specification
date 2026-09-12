@@ -6,6 +6,7 @@ namespace Rasuvaeff\Specification\Tests;
 
 use InvalidArgumentException;
 use Rasuvaeff\Specification\ComparisonSpecification;
+use Rasuvaeff\Specification\LikeMatch;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Data\DataProvider;
@@ -332,43 +333,64 @@ final class ComparisonSpecificationTest
 
         $startsWith = ComparisonSpecification::startsWith(column: 'col', prefix: 'pre');
         Assert::same($startsWith->getOperator(), 'like');
-        Assert::same($startsWith->getValue(), 'pre%');
+        Assert::same($startsWith->getValue(), 'pre');
+        Assert::same($startsWith->getLikeMatch(), LikeMatch::StartsWith);
 
         $endsWith = ComparisonSpecification::endsWith(column: 'col', suffix: 'suf');
         Assert::same($endsWith->getOperator(), 'like');
-        Assert::same($endsWith->getValue(), '%suf');
+        Assert::same($endsWith->getValue(), 'suf');
+        Assert::same($endsWith->getLikeMatch(), LikeMatch::EndsWith);
 
         $contains = ComparisonSpecification::contains(column: 'col', substring: 'sub');
         Assert::same($contains->getOperator(), 'like');
-        Assert::same($contains->getValue(), '%sub%');
+        Assert::same($contains->getValue(), 'sub');
+        Assert::same($contains->getLikeMatch(), LikeMatch::Contains);
     }
 
     public function stringOperators(): void
     {
         $like = ComparisonSpecification::like(column: 'name', pattern: '%john%');
         Assert::same($like->getOperator(), 'like');
+        Assert::same($like->getLikeMatch(), LikeMatch::Pattern);
 
         $notLike = ComparisonSpecification::notLike(column: 'name', pattern: '%admin%');
         Assert::same($notLike->getOperator(), 'not like');
+        Assert::same($notLike->getLikeMatch(), LikeMatch::Pattern);
 
         $ilike = ComparisonSpecification::ilike(column: 'name', pattern: '%john%');
         Assert::same($ilike->getOperator(), 'ilike');
+        Assert::same($ilike->getLikeMatch(), LikeMatch::Pattern);
 
         $notIlike = ComparisonSpecification::notIlike(column: 'name', pattern: '%admin%');
         Assert::same($notIlike->getOperator(), 'not ilike');
+        Assert::same($notIlike->getLikeMatch(), LikeMatch::Pattern);
     }
 
-    public function patternHelpers(): void
+    public function patternHelpersKeepTheValueClean(): void
     {
-        $startsWith = ComparisonSpecification::startsWith(column: 'name', prefix: 'John');
+        // The wildcard is the builder's to add: a `%` in the value would be
+        // escaped and searched for literally (#27).
+        $startsWith = ComparisonSpecification::startsWith(column: 'name', prefix: 'John%');
         Assert::same($startsWith->getOperator(), 'like');
         Assert::same($startsWith->getValue(), 'John%');
+        Assert::same($startsWith->getLikeMatch(), LikeMatch::StartsWith);
 
-        $endsWith = ComparisonSpecification::endsWith(column: 'name', suffix: 'Doe');
+        $endsWith = ComparisonSpecification::endsWith(column: 'name', suffix: '%Doe');
         Assert::same($endsWith->getValue(), '%Doe');
+        Assert::same($endsWith->getLikeMatch(), LikeMatch::EndsWith);
 
-        $contains = ComparisonSpecification::contains(column: 'name', substring: 'oh');
-        Assert::same($contains->getValue(), '%oh%');
+        $contains = ComparisonSpecification::contains(column: 'name', substring: '%');
+        Assert::same($contains->getValue(), '%');
+        Assert::same($contains->getLikeMatch(), LikeMatch::Contains);
+    }
+
+    public function likeMatchDefaultsToPattern(): void
+    {
+        $spec = new ComparisonSpecification(column: 'name', value: 'a_b%', operator: 'like');
+        Assert::same($spec->getLikeMatch(), LikeMatch::Pattern);
+
+        $spec = new ComparisonSpecification(column: 'name', value: 'a', operator: 'like', likeMatch: LikeMatch::Contains);
+        Assert::same($spec->getLikeMatch(), LikeMatch::Contains);
     }
 
     public function arrayOperators(): void

@@ -78,9 +78,9 @@ final readonly class CompositeSpecification implements Specification
         return new self();
     }
 
-    public function withComparison(string $column, string|int|float|bool|array|\DateTimeInterface|null $value, string $operator = '='): self
+    public function withComparison(string $column, string|int|float|bool|array|\DateTimeInterface|null $value, string $operator = '=', ?LikeMatch $likeMatch = null): self
     {
-        return $this->withSpecification(specification: new ComparisonSpecification(column: $column, value: $value, operator: $operator));
+        return $this->withSpecification(specification: new ComparisonSpecification(column: $column, value: $value, operator: $operator, likeMatch: $likeMatch));
     }
 
     /**

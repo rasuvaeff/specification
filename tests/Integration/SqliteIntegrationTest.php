@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests\Integration;
 
+use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LikeMatch;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\QueryApplier;
 use Rasuvaeff\Specification\SpecificationBuilder;
 use Testo\Assert;
 use Testo\Codecov\CoversNothing;
+use Testo\Data\DataProvider;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
 use Yiisoft\Cache\ArrayCache;
@@ -254,5 +257,81 @@ final class SqliteIntegrationTest
             ->withOrCondition(conditions: ['name' => ['alpha', 'bravo']]);
 
         Assert::same($this->ids($spec), [1, 2]);
+    }
+
+    /**
+     * The structural tests see the array handed to `andWhere()` and nothing
+     * of what yiisoft/db does with it — which is to escape the value and wrap
+     * it in `%…%` unless told otherwise. A pre-wildcarded value searched for
+     * a literal `%`, and `ilike` rendered as a verbatim `ILIKE` that SQLite
+     * does not parse (#27).
+     *
+     * @param list<int> $expected
+     */
+    #[DataProvider('likeProvider')]
+    public function likeAgainstTheRealBuilder(ComparisonSpecification $spec, array $expected): void
+    {
+        $this->db->createCommand()
+            ->insertBatch('items', [
+                [6, 'Alpha%Beta', 'active', 60, '2024-06-01'],
+                [7, 'Alphabet', 'active', 70, '2024-07-01'],
+                [8, 'a_b', 'active', 80, '2024-08-01'],
+            ], ['id', 'name', 'status', 'price', 'created_at'])
+            ->execute();
+
+        Assert::same($this->ids(CompositeSpecification::create()->withSpecification($spec)), $expected);
+    }
+
+    public static function likeProvider(): iterable
+    {
+        // SQLite's LIKE is case-insensitive for ASCII, hence `alpha` beside `Alpha…`.
+        yield 'startsWith adds the wildcard' => [ComparisonSpecification::startsWith(column: 'name', prefix: 'Alpha'), [1, 6, 7]];
+        yield 'endsWith adds the wildcard' => [ComparisonSpecification::endsWith(column: 'name', suffix: 'bet'), [7]];
+        yield 'contains adds both wildcards' => [ComparisonSpecification::contains(column: 'name', substring: 'lph'), [1, 6, 7]];
+        yield 'contains escapes a literal percent' => [ComparisonSpecification::contains(column: 'name', substring: '%'), [6]];
+        yield 'contains escapes a literal underscore' => [ComparisonSpecification::contains(column: 'name', substring: '_'), [8]];
+        yield 'like sends the pattern verbatim' => [ComparisonSpecification::like(column: 'name', pattern: 'a_b%'), [8]];
+        yield 'not like sends the pattern verbatim' => [ComparisonSpecification::notLike(column: 'name', pattern: '%a%'), [5]];
+        yield 'ilike is accepted by SQLite' => [ComparisonSpecification::ilike(column: 'name', pattern: '%ALPHA%'), [1, 6, 7]];
+        yield 'not ilike is accepted by SQLite' => [ComparisonSpecification::notIlike(column: 'name', pattern: '%A%'), [5]];
+        yield 'a match mode combines with ilike' => [new ComparisonSpecification(column: 'name', value: 'LPH', operator: 'ilike', likeMatch: LikeMatch::Contains), [1, 6, 7]];
+    }
+
+    /**
+     * NOT and OR route the condition through a sub-query and the placeholder
+     * remap, so the named operands must survive that path too.
+     */
+    public function likeInsideNotAndOr(): void
+    {
+        $this->db->createCommand()
+            ->insertBatch('items', [
+                [6, 'Alpha%Beta', 'active', 60, '2024-06-01'],
+                [7, 'Alphabet', 'active', 70, '2024-07-01'],
+            ], ['id', 'name', 'status', 'price', 'created_at'])
+            ->execute();
+
+        $not = CompositeSpecification::create()->withSpecification(
+            specification: new NotSpecification(specification: ComparisonSpecification::contains(column: 'name', substring: 'lph')),
+        );
+        Assert::same($this->ids($not), [2, 3, 4, 5]);
+
+        $or = CompositeSpecification::create()->withSpecification(
+            specification: OrSpecification::create(
+                ComparisonSpecification::contains(column: 'name', substring: '%'),
+                ComparisonSpecification::endsWith(column: 'name', suffix: 'bet'),
+                ComparisonSpecification::like(column: 'name', pattern: 'e%'),
+            ),
+        );
+        Assert::same($this->ids($or), [5, 6, 7]);
+    }
+
+    public function orConditionLikeSendsThePatternVerbatim(): void
+    {
+        $this->db->createCommand()->insert('items', ['id' => 6, 'name' => 'Alpha%Beta', 'status' => 'active', 'price' => 60, 'created_at' => '2024-06-01'])->execute();
+
+        $spec = CompositeSpecification::create()
+            ->withOrCondition(conditions: ['name' => ['like', '%\\%%'], 'price' => 50]);
+
+        Assert::same($this->ids($spec), [5, 6]);
     }
 }
