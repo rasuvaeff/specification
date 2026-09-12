@@ -22,12 +22,16 @@ final readonly class ComparisonSpecification implements Specification
 
     private string $operator;
 
+    private LikeMatch $likeMatch;
+
     public function __construct(
         private string $column,
         private string|int|float|bool|array|DateTimeInterface|null $value,
         string $operator = '=',
+        ?LikeMatch $likeMatch = null,
     ) {
         $this->operator = mb_strtolower(string: $operator);
+        $this->likeMatch = $likeMatch ?? LikeMatch::Pattern;
         $this->validateOperator();
         $this->validateValue();
     }
@@ -144,17 +148,17 @@ final readonly class ComparisonSpecification implements Specification
 
     public static function startsWith(string $column, string $prefix): self
     {
-        return new self(column: $column, value: $prefix . '%', operator: 'like');
+        return new self(column: $column, value: $prefix, operator: 'like', likeMatch: LikeMatch::StartsWith);
     }
 
     public static function endsWith(string $column, string $suffix): self
     {
-        return new self(column: $column, value: '%' . $suffix, operator: 'like');
+        return new self(column: $column, value: $suffix, operator: 'like', likeMatch: LikeMatch::EndsWith);
     }
 
     public static function contains(string $column, string $substring): self
     {
-        return new self(column: $column, value: '%' . $substring . '%', operator: 'like');
+        return new self(column: $column, value: $substring, operator: 'like', likeMatch: LikeMatch::Contains);
     }
 
     public static function in(string $column, array $values): self
@@ -200,5 +204,10 @@ final readonly class ComparisonSpecification implements Specification
     public function getOperator(): string
     {
         return $this->operator;
+    }
+
+    public function getLikeMatch(): LikeMatch
+    {
+        return $this->likeMatch;
     }
 }

@@ -20,7 +20,11 @@ composer require rasuvaeff/specification   # needs yiisoft/db ^2.0.1
   Put user values only in its `$params` (placeholders).
 - `CompositeSpecification` composes with AND. For OR use `OrSpecification` or
   `SpecificationBuilder::orWhere()`.
-- `ilike`/`not ilike` are PostgreSQL-specific.
+- `like`/`notLike`/`ilike`/`notIlike` send the pattern verbatim (`%`/`_` are
+  wildcards); `startsWith`/`endsWith`/`contains` take a plain string — the
+  builder escapes `%`, `_`, `\` and adds the wildcard (`LikeMatch`).
+- `ilike`/`not ilike` are `LIKE` with `caseSensitive: false`: `ILIKE` on
+  PostgreSQL, plain `LIKE` on MySQL/SQLite.
 
 ## Apply to a query
 
@@ -42,7 +46,7 @@ $rows = $query->all();
 
 ```
 create(): self
-where(col, val, op='='): self
+where(col, val, op='=', ?LikeMatch $likeMatch = null): self
 whereEqual / whereNotEqual (col, val)
 whereGreaterThan / whereGreaterThanOrEqual / whereLessThan / whereLessThanOrEqual (col, val)
 whereIn / whereNotIn (col, array)

@@ -28,8 +28,11 @@ Immutable condition objects composed into a tree, then applied to a
    new RawSpecification("price > {$userInput}");                 // injection
    ```
 
-3. **`ilike` / `not ilike` are PostgreSQL-only.** They fail at runtime on
-   MySQL and SQLite.
+3. **`startsWith` / `endsWith` / `contains` take a plain string, not a
+   pattern.** The builder escapes `%`, `_` and `\` and adds the wildcard;
+   only `like` / `notLike` / `ilike` / `notIlike` send the pattern verbatim.
+   `ilike` is `LIKE` with `caseSensitive: false` — `ILIKE` on PostgreSQL, a
+   plain `LIKE` elsewhere.
 
 ## Canonical usage
 

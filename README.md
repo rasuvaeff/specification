@@ -84,11 +84,11 @@ Available methods:
 | `whereNotLike($col, $pattern)` | `col NOT LIKE pattern` |
 | `whereBetween($col, $from, $to)` | `col BETWEEN from AND to` |
 | `whereNotBetween($col, $from, $to)` | `col NOT BETWEEN from AND to` |
-| `whereIlike($col, $pattern)` | `col ILIKE pattern` |
-| `whereNotIlike($col, $pattern)` | `col NOT ILIKE pattern` |
-| `whereStartsWith($col, $prefix)` | `col LIKE prefix%` |
-| `whereEndsWith($col, $suffix)` | `col LIKE %suffix` |
-| `whereContains($col, $substring)` | `col LIKE %substring%` |
+| `whereIlike($col, $pattern)` | `col LIKE pattern`, case-insensitive |
+| `whereNotIlike($col, $pattern)` | `col NOT LIKE pattern`, case-insensitive |
+| `whereStartsWith($col, $prefix)` | `col LIKE prefix%` (prefix escaped) |
+| `whereEndsWith($col, $suffix)` | `col LIKE %suffix` (suffix escaped) |
+| `whereContains($col, $substring)` | `col LIKE %substring%` (substring escaped) |
 | `whereNull($col)` | `col IS NULL` |
 | `whereNotNull($col)` | `col IS NOT NULL` |
 | `orWhere(callable)` | `OR (nested conditions)` |
@@ -170,6 +170,26 @@ ComparisonSpecification::isNull('col')
 ComparisonSpecification::isNotNull('col')
 ```
 
+### LIKE: patterns and substrings
+
+`like()`, `notLike()`, `ilike()` and `notIlike()` take a **pattern**: it is
+sent to the database verbatim, so `%` and `_` in it are wildcards and it is
+the caller's job to escape a literal one. `startsWith()`, `endsWith()` and
+`contains()` take a **plain string**: the query builder escapes `%`, `_` and
+`\` in it and adds the wildcard itself, so `contains('name', '100%')` finds
+the rows that contain `100%`.
+
+`ilike()` / `notIlike()` are `LIKE` with `caseSensitive: false` in yiisoft/db
+terms: PostgreSQL renders them as `ILIKE`, MySQL and SQLite as a plain `LIKE`
+(both are case-insensitive by default for their usual collations).
+
+The match mode travels with the specification as `LikeMatch` and is available
+to custom visitors via `getLikeMatch()`. The constructor accepts it too:
+
+```php
+new ComparisonSpecification('name', 'abc', 'ilike', LikeMatch::Contains);
+```
+
 ### Custom visitor
 
 Implement `SpecificationVisitor<T>` to traverse the specification tree:
@@ -248,15 +268,18 @@ Benchmarks live in `benchmarks/` and run via `composer bench` (requires
 
 ## Notes
 
-- `ilike` / `not ilike` are PostgreSQL-specific; other drivers (e.g. MySQL) do not
-  support them. Use `like` for case-insensitive needs on those drivers.
+- `ilike` / `not ilike` are rendered as `ILIKE` on PostgreSQL and as a plain
+  `LIKE` elsewhere; see "LIKE: patterns and substrings".
 - For OR conditions use `OrSpecification` or `SpecificationBuilder::orWhere()`.
   `CompositeSpecification` composes with **AND** semantics.
 - `withOrCondition()` value formats: a scalar is plain equality (`'status' => 'active'`);
   an array whose first element is a known operator is a shorthand
   (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); any other array is treated as
   a value, so a plain list (`'name' => ['a', 'b']`) becomes an `IN` condition. The
-  operator is matched case-insensitively.
+  operator is matched case-insensitively. A `['like', pattern]` entry (and the
+  other three LIKE operators) sends the pattern verbatim; a condition handed to
+  `OrConditionSpecification` directly is normalized the same way only in its
+  three-element `[operator, column, pattern]` form.
 
 ## License
 

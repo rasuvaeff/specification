@@ -6,6 +6,7 @@ namespace Rasuvaeff\Specification\Tests;
 
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LikeMatch;
 use Rasuvaeff\Specification\LimitSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OffsetSpecification;
@@ -239,11 +240,14 @@ final class SpecificationBuilderTest
         Assert::same($specifications[1]->getOperator(), 'ilike');
         Assert::same($specifications[2]->getOperator(), 'not ilike');
         Assert::same($specifications[3]->getOperator(), 'like');
-        Assert::same($specifications[3]->getValue(), 'pre-%');
+        Assert::same($specifications[3]->getValue(), 'pre-');
+        Assert::same($specifications[3]->getLikeMatch(), LikeMatch::StartsWith);
         Assert::same($specifications[4]->getOperator(), 'like');
-        Assert::same($specifications[4]->getValue(), '%-post');
+        Assert::same($specifications[4]->getValue(), '-post');
+        Assert::same($specifications[4]->getLikeMatch(), LikeMatch::EndsWith);
         Assert::same($specifications[5]->getOperator(), 'like');
-        Assert::same($specifications[5]->getValue(), '%mid%');
+        Assert::same($specifications[5]->getValue(), 'mid');
+        Assert::same($specifications[5]->getLikeMatch(), LikeMatch::Contains);
     }
 
     public function sequentialOrWhereFlattens(): void

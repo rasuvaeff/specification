@@ -84,11 +84,11 @@ $rows = $query->all();
 | `whereNotLike($col, $pattern)` | `col NOT LIKE pattern` |
 | `whereBetween($col, $from, $to)` | `col BETWEEN from AND to` |
 | `whereNotBetween($col, $from, $to)` | `col NOT BETWEEN from AND to` |
-| `whereIlike($col, $pattern)` | `col ILIKE pattern` |
-| `whereNotIlike($col, $pattern)` | `col NOT ILIKE pattern` |
-| `whereStartsWith($col, $prefix)` | `col LIKE prefix%` |
-| `whereEndsWith($col, $suffix)` | `col LIKE %suffix` |
-| `whereContains($col, $substring)` | `col LIKE %substring%` |
+| `whereIlike($col, $pattern)` | `col LIKE pattern`, без учёта регистра |
+| `whereNotIlike($col, $pattern)` | `col NOT LIKE pattern`, без учёта регистра |
+| `whereStartsWith($col, $prefix)` | `col LIKE prefix%` (prefix экранируется) |
+| `whereEndsWith($col, $suffix)` | `col LIKE %suffix` (suffix экранируется) |
+| `whereContains($col, $substring)` | `col LIKE %substring%` (substring экранируется) |
 | `whereNull($col)` | `col IS NULL` |
 | `whereNotNull($col)` | `col IS NOT NULL` |
 | `orWhere(callable)` | `OR (nested conditions)` |
@@ -168,6 +168,27 @@ ComparisonSpecification::between('col', $from, $to)
 ComparisonSpecification::notBetween('col', $from, $to)
 ComparisonSpecification::isNull('col')
 ComparisonSpecification::isNotNull('col')
+```
+
+### LIKE: паттерны и подстроки
+
+`like()`, `notLike()`, `ilike()` и `notIlike()` принимают **паттерн**: он
+уходит в базу как есть, `%` и `_` в нём — wildcards, и экранировать
+литеральный символ — задача вызывающего. `startsWith()`, `endsWith()` и
+`contains()` принимают **обычную строку**: query builder экранирует в ней
+`%`, `_` и `\` и сам добавляет wildcard, поэтому `contains('name', '100%')`
+находит строки, содержащие `100%`.
+
+`ilike()` / `notIlike()` — это `LIKE` с `caseSensitive: false` в терминах
+yiisoft/db: PostgreSQL рендерит их как `ILIKE`, MySQL и SQLite — как обычный
+`LIKE` (оба по умолчанию сравнивают без учёта регистра для своих обычных
+collation).
+
+Режим сопоставления хранится в спецификации как `LikeMatch` и доступен
+собственным visitor'ам через `getLikeMatch()`. Конструктор тоже его принимает:
+
+```php
+new ComparisonSpecification('name', 'abc', 'ilike', LikeMatch::Contains);
 ```
 
 ### Собственный visitor
@@ -252,9 +273,8 @@ $spec = CompositeSpecification::create()
 
 ## Замечания
 
-- `ilike`/`not ilike` специфичны для PostgreSQL; другие драйверы (например,
-  MySQL) их не поддерживают. Для case-insensitive-нужд на таких драйверах
-  используйте `like`.
+- `ilike`/`not ilike` рендерятся как `ILIKE` на PostgreSQL и как обычный
+  `LIKE` на остальных драйверах; см. «LIKE: паттерны и подстроки».
 - Для OR-условий используйте `OrSpecification` либо `SpecificationBuilder::orWhere()`.
   `CompositeSpecification` компонует с **AND**-семантикой.
 - Форматы значений `withOrCondition()`: скаляр — это plain equality
@@ -262,7 +282,10 @@ $spec = CompositeSpecification::create()
   — сокращение (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); любой
   другой массив трактуется как значение, поэтому простой список
   (`'name' => ['a', 'b']`) становится условием `IN`. Оператор сопоставляется
-  case-insensitively.
+  case-insensitively. Запись `['like', pattern]` (и остальные три LIKE-оператора)
+  отправляет паттерн как есть; условие, переданное в `OrConditionSpecification`
+  напрямую, нормализуется так же только в трёхэлементной форме
+  `[operator, column, pattern]`.
 
 ## Лицензия
 

@@ -18,10 +18,10 @@ final class SpecificationBuilder
         $this->specification = CompositeSpecification::create();
     }
 
-    public function where(string $column, string|int|float|bool|array|\DateTimeInterface|null $value, string $operator = '='): self
+    public function where(string $column, string|int|float|bool|array|\DateTimeInterface|null $value, string $operator = '=', ?LikeMatch $likeMatch = null): self
     {
         $builder = $this->mutable ? $this : clone $this;
-        $builder->specification = $builder->specification->withComparison(column: $column, value: $value, operator: $operator);
+        $builder->specification = $builder->specification->withComparison(column: $column, value: $value, operator: $operator, likeMatch: $likeMatch);
 
         return $builder;
     }
@@ -108,17 +108,17 @@ final class SpecificationBuilder
 
     public function whereStartsWith(string $column, string $prefix): self
     {
-        return $this->where(column: $column, value: $prefix . '%', operator: 'like');
+        return $this->where(column: $column, value: $prefix, operator: 'like', likeMatch: LikeMatch::StartsWith);
     }
 
     public function whereEndsWith(string $column, string $suffix): self
     {
-        return $this->where(column: $column, value: '%' . $suffix, operator: 'like');
+        return $this->where(column: $column, value: $suffix, operator: 'like', likeMatch: LikeMatch::EndsWith);
     }
 
     public function whereContains(string $column, string $substring): self
     {
-        return $this->where(column: $column, value: '%' . $substring . '%', operator: 'like');
+        return $this->where(column: $column, value: $substring, operator: 'like', likeMatch: LikeMatch::Contains);
     }
 
     /**
