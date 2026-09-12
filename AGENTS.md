@@ -58,7 +58,12 @@ Integration tests need no external DB — they use in-memory SQLite (the
 - `ComparisonSpecification` validates operators (whitelist) and value↔operator
   consistency (NULL only with `=,!=,<>,is,is not`; array ops require arrays;
   `between` requires exactly two; LIKE ops require strings).
-- `ilike`/`not ilike` are PostgreSQL-specific.
+- `ilike`/`not ilike` are `LIKE` with `caseSensitive: false` (`ILIKE` on
+  PostgreSQL, plain `LIKE` elsewhere). `startsWith`/`endsWith`/`contains` carry
+  a `LikeMatch` and hand a clean string to the builder, which escapes and adds
+  the wildcard; `like`/`notLike` send the pattern verbatim. The structural
+  visitor tests see only the array — `SqliteIntegrationTest` is what checks
+  the SQL yiisoft/db builds from it (#27).
 - Code: `declare(strict_types=1)`, `final` (most specs `final readonly`),
   `#[\Override]` on visitor/interface implementations, explicit types. Comments
   in English.
