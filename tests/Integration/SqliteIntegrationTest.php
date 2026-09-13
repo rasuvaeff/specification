@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests\Integration;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\LikeMatch;
 use Rasuvaeff\Specification\NotSpecification;
+use Rasuvaeff\Specification\OrConditionSpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\QueryApplier;
 use Rasuvaeff\Specification\SpecificationBuilder;
@@ -118,6 +121,91 @@ final class SqliteIntegrationTest
             ->build();
 
         Assert::same($this->ids($spec), [1, 2, 4, 5]);
+    }
+
+    public function orWherePreservesPagination(): void
+    {
+        $spec = SpecificationBuilder::create()
+            ->whereEqual(column: 'status', value: 'active')
+            ->orderBy(columns: ['price' => 'DESC'])
+            ->limit(limit: 1)
+            ->offset(offset: 2)
+            ->orWhere(static fn(SpecificationBuilder $b): SpecificationBuilder => $b->whereEqual(column: 'status', value: 'inactive'))
+            ->build();
+
+        $query = (new Query($this->db))->select('id')->from('items');
+        QueryApplier::apply(specification: $spec, query: $query);
+
+        $ids = array_map($this->rowId(...), $query->all());
+        Assert::same($ids, [3]);
+    }
+
+    public function orWhereCallbackPreservesItsPagination(): void
+    {
+        $spec = SpecificationBuilder::create()
+            ->whereEqual(column: 'status', value: 'active')
+            ->orWhere(static fn(SpecificationBuilder $b): SpecificationBuilder => $b
+                ->whereEqual(column: 'status', value: 'inactive')
+                ->orderBy(columns: ['price' => 'DESC'])
+                ->limit(limit: 1)
+                ->offset(offset: 2))
+            ->build();
+
+        $query = (new Query($this->db))->select('id')->from('items');
+        QueryApplier::apply(specification: $spec, query: $query);
+
+        $ids = array_map($this->rowId(...), $query->all());
+        Assert::same($ids, [3]);
+    }
+
+    public function nestedOrWhereKeepsNestedBranch(): void
+    {
+        $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', 'pending', 60, '2024-06-01')")->execute();
+
+        $spec = SpecificationBuilder::create()->orWhere(
+            static fn(SpecificationBuilder $b): SpecificationBuilder => $b
+                ->whereEqual(column: 'status', value: 'active')
+                ->orWhere(static fn(SpecificationBuilder $nested): SpecificationBuilder => $nested->whereEqual(column: 'status', value: 'pending')),
+        )->build();
+
+        Assert::same($this->ids($spec), [1, 2, 4, 6]);
+    }
+
+    public function nestedNotWhereKeepsNestedBranch(): void
+    {
+        $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', 'pending', 60, '2024-06-01')")->execute();
+
+        $spec = SpecificationBuilder::create()->notWhere(
+            static fn(SpecificationBuilder $b): SpecificationBuilder => $b
+                ->whereEqual(column: 'status', value: 'active')
+                ->orWhere(static fn(SpecificationBuilder $nested): SpecificationBuilder => $nested->whereEqual(column: 'status', value: 'pending')),
+        )->build();
+
+        Assert::same($this->ids($spec), [3, 5]);
+    }
+
+    public function dateTimeKeepsMicrosecondsAndTimezone(): void
+    {
+        $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', 'active', 60, '2024-06-01 03:04:05.123456+03:00')")->execute();
+
+        $dateTime = new DateTimeImmutable('2024-06-01 03:04:05.123456', new DateTimeZone('+03:00'));
+        $spec = SpecificationBuilder::create()->whereEqual(column: 'created_at', value: $dateTime)->build();
+
+        Assert::same($this->ids($spec), [6]);
+    }
+
+    public function orConditionDateTimeKeepsMicrosecondsAndTimezone(): void
+    {
+        $this->db->createCommand("INSERT INTO items (id, name, status, price, created_at) VALUES (6, 'foxtrot', 'active', 60, '2024-06-01 03:04:05.123456+03:00')")->execute();
+
+        $dateTime = new DateTimeImmutable('2024-06-01 03:04:05.123456', new DateTimeZone('+03:00'));
+        $spec = new CompositeSpecification(specifications: [
+            new OrConditionSpecification(conditions: [
+                ['=', 'created_at', $dateTime],
+            ]),
+        ]);
+
+        Assert::same($this->ids($spec), [6]);
     }
 
     public function andCombinedWithOrManyParameters(): void

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Reject unknown operators in direct `OrConditionSpecification` conditions
+  instead of allowing SQL syntax to be injected through the operator position.
+- `SpecificationBuilder::orWhere()` now keeps `ORDER BY`, `LIMIT` and `OFFSET`
+  outside OR branches, and nested `orWhere()` / `notWhere()` callbacks retain
+  the builder returned by the callback.
+- `BETWEEN` values must be zero-based lists with exactly two elements, so
+  malformed associative arrays fail during specification construction.
+- `DateTimeInterface` values are passed through `yiisoft/db`'s timezone-aware
+  `DateTimeValue` with six-digit fractional precision.
+- Update the test adapter dependency to `rasuvaeff/property-testing-testo`
+  `^0.10`.
+
 ## 1.3.1 — 2026-09-13
 
 ### Fixed

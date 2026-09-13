@@ -81,7 +81,10 @@ final readonly class ComparisonSpecification implements Specification
                 );
             }
 
-            if (in_array(needle: $this->operator, haystack: ['between', 'not between'], strict: true) && count(value: $this->value) !== 2) {
+            if (
+                in_array(needle: $this->operator, haystack: ['between', 'not between'], strict: true)
+                && (!array_is_list(array: $this->value) || count(value: $this->value) !== 2)
+            ) {
                 throw new InvalidArgumentException(
                     message: sprintf('Operator "%s" requires array with exactly two values', $this->operator),
                 );

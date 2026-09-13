@@ -442,6 +442,13 @@ final class ComparisonSpecificationTest
         new ComparisonSpecification(column: 'age', value: [18], operator: 'between');
     }
 
+    public function validationBetweenRequiresAList(): void
+    {
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "between" requires array with exactly two values');
+
+        new ComparisonSpecification(column: 'price', value: ['from' => 20, 'to' => 40], operator: 'between');
+    }
+
     public function validationStringOperatorsRequireString(): void
     {
         Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "like" requires string value');

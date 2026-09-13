@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification\Tests;
 
+use InvalidArgumentException;
 use Rasuvaeff\Specification\OrConditionSpecification;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Expect;
 use Testo\Test;
 
 #[Test]
@@ -87,6 +89,15 @@ final class OrConditionSpecificationTest
         Assert::equals($conditions[0], ['status' => 'active']);
         Assert::equals($conditions[1], ['>', 'age', 18]);
         Assert::equals($conditions[2], ['!=', 'type', 'spam']);
+    }
+
+    public function directConstructionRejectsUnknownOperator(): void
+    {
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Invalid OR condition operator');
+
+        new OrConditionSpecification(conditions: [
+            ['= 1 OR 1=1 --', 'status', 'x'],
+        ]);
     }
 
     public function emptyConditions(): void
