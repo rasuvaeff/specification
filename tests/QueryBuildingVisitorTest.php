@@ -191,10 +191,6 @@ final class QueryBuildingVisitorTest
             ['>', 'age', 18],
             ['>', 'age', 18],
         ];
-        yield 'a like with a non-string pattern is untouched' => [
-            ['like', 'name', 5],
-            ['like', 'name', 5],
-        ];
         yield 'a like with a non-string column is untouched' => [
             ['like', ['name'], 'x'],
             ['like', ['name'], 'x'],
@@ -203,6 +199,17 @@ final class QueryBuildingVisitorTest
             ['like', 'name', 'x', 'y'],
             ['like', 'name', 'x', 'y'],
         ];
+    }
+
+    public function visitOrConditionRejectsNonStringLikePattern(): void
+    {
+        Expect::exception(InvalidArgumentException::class)->withMessageContaining('Operator "like" requires string value');
+
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $spec = new OrConditionSpecification(conditions: [['like', 'name', 5]]);
+
+        $visitor->visitOrCondition(specification: $spec);
     }
 
     /**
@@ -566,6 +573,24 @@ final class QueryBuildingVisitorTest
         $where = $query->getWhere();
         Assert::true(is_array($where));
         Assert::same($where[0], 'not');
+    }
+
+    public function visitNotHoistsQueryModifiersFromChild(): void
+    {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $innerSpec = CompositeSpecification::create()
+            ->withComparison(column: 'status', value: 'active')
+            ->withOrderBy(columns: ['created_at' => 'DESC'])
+            ->withLimit(limit: 2)
+            ->withOffset(offset: 1);
+
+        $visitor->visitNot(specification: new NotSpecification(specification: $innerSpec));
+
+        Assert::same($query->getWhere(), ['not', ['=', 'status', 'active']]);
+        Assert::same($query->getOrderBy(), ['created_at' => SORT_DESC]);
+        Assert::same($query->getLimit(), 2);
+        Assert::same($query->getOffset(), 1);
     }
 
     public function visitNotWithDoubleNotUnwraps(): void
