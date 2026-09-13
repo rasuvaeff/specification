@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Renaming a colliding raw placeholder also rewrote every sibling it was a
+  prefix of: `:sort` → `:sort_0` turned `:sort_max` into `:sort_0_max`, which
+  nothing bound, and the query failed with `column index out of range`. The
+  rename now replaces whole `:name` tokens only, in one pass (#30).
+- Two `RawSpecification`s reusing one placeholder name under a single
+  `CompositeSpecification` overwrote each other's value, so `a AND b` selected
+  a different row set than `b AND a`. `visitRaw()` now routes its params
+  through the same remap as NOT/OR: the second leaf binds `:name_0`. As a
+  consequence `getParams()` keys of raw leaves are always colon-prefixed
+  (`['age' => 18]` is bound as `':age'`); positional `?` params keep their
+  integer keys instead of being turned into a `:0` name (#31).
+
 ## 1.2.0 — 2026-09-12
 
 ### Fixed

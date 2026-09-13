@@ -272,6 +272,14 @@ Benchmarks live in `benchmarks/` and run via `composer bench` (requires
   `LIKE` elsewhere; see "LIKE: patterns and substrings".
 - For OR conditions use `OrSpecification` or `SpecificationBuilder::orWhere()`.
   `CompositeSpecification` composes with **AND** semantics.
+- `RawSpecification` placeholders are isolated per leaf. A name that is
+  already bound on the query — by an earlier raw leaf, a NOT/OR sub-query or
+  the caller's own `where()` — is renamed to `:name_0`, `:name_1`, … in that
+  leaf's condition (whole tokens only, so `:sort_max` survives a `:sort`
+  rename), and `getParams()` keys are always colon-prefixed (`'age'` becomes
+  `':age'`). Two raw leaves may therefore reuse `:price` under one AND and
+  both values are bound. Positional `?` parameters are passed through
+  untouched.
 - `withOrCondition()` value formats: a scalar is plain equality (`'status' => 'active'`);
   an array whose first element is a known operator is a shorthand
   (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); any other array is treated as

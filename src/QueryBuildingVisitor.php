@@ -112,7 +112,6 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         $subQueryParams = $subQuery->getParams();
         [$where, $params] = $this->remapConditionAndParams($where, $subQueryParams);
         $this->query->andWhere(['not', $where]);
-        /** @var array<int<0, max>|non-empty-string, mixed> $params */
         $this->query->addParams($params);
     }
 
@@ -136,7 +135,6 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
             $subQueryParams = $subQuery->getParams();
             [$where, $params] = $this->remapConditionAndParams($where, $subQueryParams);
             $conditions[] = $where;
-            /** @var array<int<0, max>|non-empty-string, mixed> $params */
             $this->query->addParams($params);
         }
 
@@ -211,45 +209,52 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         };
     }
 
+    /**
+     * Two raw leaves under one AND may reuse a placeholder name; without the
+     * remap `Query::addParams()` keeps the last value for both (#31).
+     */
     #[\Override]
     public function visitRaw(RawSpecification $specification): void
     {
-        $condition = $specification->getCondition();
-        $this->query->andWhere($condition, $specification->getParams());
+        /** @var array<int<0, max>|non-empty-string, mixed> $rawParams */
+        $rawParams = $specification->getParams();
+        [$condition, $params] = $this->remapConditionAndParams($specification->getCondition(), $rawParams);
+        $this->query->andWhere($condition);
+        $this->query->addParams($params);
     }
 
     /**
+     * Positional (`?`) parameters keep their integer keys: they cannot collide
+     * by name, and a `:0` key would no longer bind to the `?`.
+     *
      * @param string|array<mixed>|ExpressionInterface $condition
      * @param array<int<0, max>|non-empty-string, mixed> $params
-     * @return array{0: string|array<mixed>|ExpressionInterface, 1: array<string, mixed>}
+     * @return array{0: string|array<mixed>|ExpressionInterface, 1: array<int<0, max>|non-empty-string, mixed>}
      */
     private function remapConditionAndParams(string|array|ExpressionInterface $condition, array $params): array
     {
-        if ($params === []) {
-            return [$condition, []];
-        }
-
         $currentParams = $this->queryStringParams();
-        /** @var array<string, mixed> $renamedParams */
+        /** @var array<int<0, max>|non-empty-string, mixed> $renamedParams */
         $renamedParams = [];
         /** @var array<string, string> $replacements */
         $replacements = [];
 
-        $stringKeys = array_map(static fn(int|string $k): string => (string) $k, array_keys($params));
-        $paramValues = array_values($params);
+        foreach ($params as $placeholder => $paramValue) {
+            if (is_int($placeholder)) {
+                $renamedParams[$placeholder] = $paramValue;
 
-        foreach ($stringKeys as $i => $placeholder) {
+                continue;
+            }
+
             $normalizedPlaceholder = $this->normalizePlaceholder($placeholder);
             $uniquePlaceholder = $this->makeUniquePlaceholder($normalizedPlaceholder, $currentParams, $renamedParams);
-
-            assert(array_key_exists($i, $paramValues));
-            $renamedParams[$uniquePlaceholder] = $paramValues[$i];
+            $renamedParams[$uniquePlaceholder] = $paramValue;
 
             if ($uniquePlaceholder !== $normalizedPlaceholder) {
                 $replacements[$normalizedPlaceholder] = $uniquePlaceholder;
             }
 
-            $currentParams[$uniquePlaceholder] = $paramValues[$i];
+            $currentParams[$uniquePlaceholder] = $paramValue;
         }
 
         if ($replacements !== []) {
@@ -276,8 +281,27 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
     }
 
     /**
+     * Whole tokens only: `strtr()` would rewrite the `:sort` prefix of
+     * `:sort_max` as well (#30). The lookbehind leaves a `::type` cast alone.
+     * One pass over the original string, so a rename cannot cascade into
+     * another rename's result.
+     *
+     * @param array<string, string> $replacements
+     */
+    private function replacePlaceholderTokens(string $condition, array $replacements): string
+    {
+        return preg_replace_callback(
+            '/(?<![:\w]):\w+/',
+            static fn(array $match): string => $replacements[$match[0]] ?? $match[0],
+            $condition,
+        ) ?? $condition;
+    }
+
+    /**
+     * @param non-empty-string $placeholder
      * @param array<string, mixed> $currentParams
-     * @param array<string, mixed> $renamedParams
+     * @param array<int<0, max>|non-empty-string, mixed> $renamedParams
+     * @return non-empty-string
      */
     private function makeUniquePlaceholder(string $placeholder, array $currentParams, array $renamedParams): string
     {
@@ -304,7 +328,7 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         }
 
         if (is_string($condition)) {
-            return strtr($condition, $replacements);
+            return $this->replacePlaceholderTokens($condition, $replacements);
         }
 
         if ($condition instanceof ExpressionInterface) {
@@ -325,6 +349,9 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         return $normalizedCondition;
     }
 
+    /**
+     * @return non-empty-string
+     */
     private function normalizePlaceholder(string $placeholder): string
     {
         return str_starts_with($placeholder, ':') ? $placeholder : ':' . $placeholder;
