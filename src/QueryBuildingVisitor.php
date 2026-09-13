@@ -162,7 +162,10 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
 
     /**
      * A LIKE written as `[operator, column, pattern]` carries the caller's
-     * wildcards in the pattern, so it is sent verbatim.
+     * wildcards in the pattern, so it is sent verbatim. `is` / `is not` are
+     * mapped to `=` / `!=` exactly as visitComparison() does: yiisoft/db
+     * renders `IS NULL` for a null operand, while a verbatim `IS 'value'` is a
+     * syntax error on MySQL and PostgreSQL (#34).
      *
      * @param array<array-key, mixed> $condition
      * @return array<array-key, mixed>
@@ -173,11 +176,14 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
             return $condition;
         }
         [$operator, $column, $value] = $condition;
-        if (!is_string(value: $operator) || !is_string(value: $column) || !is_string(value: $value)) {
+        if (!is_string(value: $operator) || !is_string(value: $column)) {
             return $condition;
         }
         $operator = mb_strtolower(string: $operator);
-        if (!in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
+        if ($operator === 'is' || $operator === 'is not') {
+            return [$operator === 'is' ? '=' : '!=', $column, $value];
+        }
+        if (!is_string(value: $value) || !in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
             return $condition;
         }
 

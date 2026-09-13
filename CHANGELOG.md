@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- An OR condition written as `['is', value]` / `['is not', value]` (or handed
+  to `OrConditionSpecification` as `['is', column, value]`) was passed to
+  yiisoft/db verbatim and rendered `col IS 'value'` — a syntax error on MySQL
+  and PostgreSQL that SQLite alone accepts. The OR path now maps `is` / `is not`
+  to `=` / `!=` exactly as `visitComparison()` does: a `null` operand still
+  renders `IS NULL` / `IS NOT NULL`, any other operand a plain equality (#34).
+
 ## 1.3.0 — 2026-09-13
 
 ### Fixed

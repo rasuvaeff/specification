@@ -285,9 +285,12 @@ Benchmarks live in `benchmarks/` and run via `composer bench` (requires
   (`'age' => ['>', 18]`, `'type' => ['in', ['a', 'b']]`); any other array is treated as
   a value, so a plain list (`'name' => ['a', 'b']`) becomes an `IN` condition. The
   operator is matched case-insensitively. A `['like', pattern]` entry (and the
-  other three LIKE operators) sends the pattern verbatim; a condition handed to
-  `OrConditionSpecification` directly is normalized the same way only in its
-  three-element `[operator, column, pattern]` form.
+  other three LIKE operators) sends the pattern verbatim. `['is', value]` and
+  `['is not', value]` are rendered as `=` / `!=`, exactly like the comparison
+  path: a `null` operand becomes `IS NULL` / `IS NOT NULL`, anything else a plain
+  equality — never a verbatim `IS 'value'`, which MySQL and PostgreSQL reject.
+  A condition handed to `OrConditionSpecification` directly is normalized the
+  same way only in its three-element `[operator, column, value]` form.
 
 ## License
 

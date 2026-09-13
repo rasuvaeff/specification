@@ -189,6 +189,34 @@ final class QueryBuildingVisitorTest
         ];
     }
 
+    /**
+     * @param array<array-key, mixed> $condition
+     * @param array<array-key, mixed> $expected
+     */
+    #[DataProvider('orConditionIsProvider')]
+    public function visitOrConditionMapsIsToEqualityLikeVisitComparison(array $condition, array $expected): void
+    {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $spec = new OrConditionSpecification(conditions: [['status' => 'active'], $condition]);
+
+        $visitor->visitOrCondition(specification: $spec);
+
+        Assert::same($query->getWhere(), ['or', ['status' => 'active'], $expected]);
+    }
+
+    public static function orConditionIsProvider(): iterable
+    {
+        yield 'is null' => [['is', 'deleted_at', null], ['=', 'deleted_at', null]];
+        yield 'is not null' => [['is not', 'deleted_at', null], ['!=', 'deleted_at', null]];
+        yield 'IS in upper case' => [['IS', 'deleted_at', null], ['=', 'deleted_at', null]];
+        yield 'is with a string operand' => [['is', 'status', 'pending'], ['=', 'status', 'pending']];
+        yield 'is not with a string operand' => [['is not', 'status', 'pending'], ['!=', 'status', 'pending']];
+        yield 'is with a bool operand' => [['is', 'flag', true], ['=', 'flag', true]];
+        yield 'an is with a non-string column is untouched' => [['is', ['deleted_at'], null], ['is', ['deleted_at'], null]];
+        yield 'an is with two operands is untouched' => [['is', 'deleted_at'], ['is', 'deleted_at']];
+    }
+
     public function visitOrConditionEmpty(): void
     {
         $query = $this->makeQuery();
