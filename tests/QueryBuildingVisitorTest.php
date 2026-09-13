@@ -223,7 +223,141 @@ final class QueryBuildingVisitorTest
         $visitor->visitRaw(specification: $spec);
 
         Assert::same($query->getWhere(), $condition);
-        Assert::same($query->getParams(), $params);
+        Assert::same($query->getParams(), [':a' => 1, ':b' => 2]);
+    }
+
+    public function visitRawRenamesPlaceholdersCollidingWithTheQuery(): void
+    {
+        $query = $this->makeQuery();
+        $query->where(condition: 'sort > :sort', params: [':sort' => 20]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitRaw(specification: new RawSpecification(condition: 'sort < :sort', params: [':sort' => 40]));
+
+        Assert::same($query->getWhere(), ['and', 'sort > :sort', 'sort < :sort_0']);
+        Assert::same($query->getParams(), [':sort' => 20, ':sort_0' => 40]);
+    }
+
+    /**
+     * Issue #31: two raw leaves under one AND reused `:sort`, and the second
+     * value overwrote the first — the result depended on the order of the leaves.
+     */
+    public function visitCompositeKeepsBothValuesOfARepeatedRawPlaceholder(): void
+    {
+        $a = new RawSpecification(condition: 'sort > :sort', params: [':sort' => 20]);
+        $b = new RawSpecification(condition: 'sort < :sort', params: [':sort' => 40]);
+
+        $query = $this->makeQuery();
+        (CompositeSpecification::create()->withSpecification($a)->withSpecification($b))
+            ->accept(new QueryBuildingVisitor(query: $query));
+        Assert::same($query->getWhere(), ['and', 'sort > :sort', 'sort < :sort_0']);
+        Assert::same($query->getParams(), [':sort' => 20, ':sort_0' => 40]);
+
+        $query = $this->makeQuery();
+        (CompositeSpecification::create()->withSpecification($b)->withSpecification($a))
+            ->accept(new QueryBuildingVisitor(query: $query));
+        Assert::same($query->getWhere(), ['and', 'sort < :sort', 'sort > :sort_0']);
+        Assert::same($query->getParams(), [':sort' => 40, ':sort_0' => 20]);
+    }
+
+    public function visitRawTreatsColonlessAndColonKeysAsTheSamePlaceholder(): void
+    {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+
+        $visitor->visitRaw(specification: new RawSpecification(condition: 'sort > :sort', params: ['sort' => 20]));
+        $visitor->visitRaw(specification: new RawSpecification(condition: 'sort < :sort', params: [':sort' => 40]));
+
+        Assert::same($query->getWhere(), ['and', 'sort > :sort', 'sort < :sort_0']);
+        Assert::same($query->getParams(), [':sort' => 20, ':sort_0' => 40]);
+    }
+
+    public function visitRawLeavesPositionalParamsUntouched(): void
+    {
+        $query = $this->makeQuery();
+        $visitor = new QueryBuildingVisitor(query: $query);
+
+        $visitor->visitRaw(specification: new RawSpecification(condition: 'sort > ? AND sort < ?', params: [1 => 20, 2 => 40]));
+
+        Assert::same($query->getWhere(), 'sort > ? AND sort < ?');
+        Assert::same($query->getParams(), [1 => 20, 2 => 40]);
+    }
+
+    public function visitRawPicksTheNextFreeSuffixWhenTheRenamedNameIsTakenToo(): void
+    {
+        $query = $this->makeQuery();
+        $query->where(condition: 'sort > :sort AND sort < :sort_0', params: [':sort' => 0, ':sort_0' => 100]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitRaw(specification: new RawSpecification(condition: 'sort <> :sort', params: [':sort' => 50]));
+
+        Assert::same($query->getWhere(), ['and', 'sort > :sort AND sort < :sort_0', 'sort <> :sort_1']);
+        Assert::same($query->getParams(), [':sort' => 0, ':sort_0' => 100, ':sort_1' => 50]);
+    }
+
+    /**
+     * Issue #30: `strtr()` rewrote every occurrence of the renamed `:sort`,
+     * including the prefix of `:sort_max`, which then referenced a parameter
+     * nobody had bound.
+     */
+    #[DataProvider('wholeTokenRenameProvider')]
+    public function visitNotRenamesWholeTokensOnly(string $condition, string $expected): void
+    {
+        $query = $this->makeQuery();
+        $query->where(condition: 'sort > :sort', params: [':sort' => 0]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitNot(specification: new NotSpecification(
+            specification: new RawSpecification(condition: $condition, params: [':sort' => 15, ':sort_max' => 45]),
+        ));
+
+        Assert::same($query->getWhere(), ['and', 'sort > :sort', ['not', $expected]]);
+        Assert::same($query->getParams(), [':sort' => 0, ':sort_0' => 15, ':sort_max' => 45]);
+    }
+
+    public static function wholeTokenRenameProvider(): iterable
+    {
+        yield 'sibling placeholder with the renamed one as prefix' => [
+            'sort BETWEEN :sort AND :sort_max',
+            'sort BETWEEN :sort_0 AND :sort_max',
+        ];
+        yield 'prefixed sibling first' => [
+            'sort <= :sort_max AND sort >= :sort',
+            'sort <= :sort_max AND sort >= :sort_0',
+        ];
+        yield 'renamed placeholder at the end of the string' => [
+            'sort < :sort_max AND sort > :sort',
+            'sort < :sort_max AND sort > :sort_0',
+        ];
+        yield 'placeholder followed by punctuation' => [
+            'sort IN (:sort,:sort_max)',
+            'sort IN (:sort_0,:sort_max)',
+        ];
+        yield 'a ::type cast is not a placeholder' => [
+            'sort::sort = :sort AND sort <= :sort_max',
+            'sort::sort = :sort_0 AND sort <= :sort_max',
+        ];
+    }
+
+    /**
+     * A leaf already renamed inside the sub-query (`:v` → `:v_0`) collides a
+     * second time at the NOT boundary; one pass over the original string keeps
+     * the two renames from cascading into each other.
+     */
+    public function visitNotRenamesTwiceCollidingPlaceholdersInOnePass(): void
+    {
+        $query = $this->makeQuery();
+        $query->where(condition: 'sort > :v', params: [':v' => 0]);
+
+        $visitor = new QueryBuildingVisitor(query: $query);
+        $visitor->visitNot(specification: new NotSpecification(
+            specification: CompositeSpecification::create()
+                ->withSpecification(new RawSpecification(condition: 'sort = :v', params: [':v' => 20]))
+                ->withSpecification(new RawSpecification(condition: 'sort = :v', params: [':v' => 30])),
+        ));
+
+        Assert::same($query->getWhere(), ['and', 'sort > :v', ['not', ['and', 'sort = :v_0', 'sort = :v_0_0']]]);
+        Assert::same($query->getParams(), [':v' => 0, ':v_0' => 20, ':v_0_0' => 30]);
     }
 
     public function visitComparisonNotBetweenOperator(): void

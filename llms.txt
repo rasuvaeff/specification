@@ -18,6 +18,10 @@ composer require rasuvaeff/specification   # needs yiisoft/db ^2.0.1
   raw user input.
 - `RawSpecification` is a raw escape hatch — the condition string is NOT escaped.
   Put user values only in its `$params` (placeholders).
+- Raw placeholders are isolated per leaf: a name already bound on the query is
+  renamed to `:name_0`, `:name_1`, … in that leaf (whole tokens only), and
+  `getParams()` keys are always colon-prefixed. Two raw leaves may reuse the
+  same placeholder name.
 - `CompositeSpecification` composes with AND. For OR use `OrSpecification` or
   `SpecificationBuilder::orWhere()`.
 - `like`/`notLike`/`ilike`/`notIlike` send the pattern verbatim (`%`/`_` are

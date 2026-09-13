@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rasuvaeff\Specification\Tests\Integration;
 
 use Rasuvaeff\PropertyTesting\ArbitraryInterface;
+use Rasuvaeff\PropertyTesting\Classify;
 use Rasuvaeff\PropertyTesting\Gen;
 use Rasuvaeff\PropertyTesting\Property;
 use Rasuvaeff\Specification\ComparisonSpecification;
@@ -12,6 +13,7 @@ use Rasuvaeff\Specification\CompositeSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OrSpecification;
 use Rasuvaeff\Specification\QueryApplier;
+use Rasuvaeff\Specification\RawSpecification;
 use Rasuvaeff\Specification\Specification;
 use Testo\Assert;
 use Testo\Codecov\CoversNothing;
@@ -19,6 +21,7 @@ use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
 use Yiisoft\Cache\ArrayCache;
 use Yiisoft\Db\Cache\SchemaCache;
+use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Sqlite\Connection;
 use Yiisoft\Db\Sqlite\Driver;
@@ -72,11 +75,21 @@ final class CompositionLawsPropertyTest
     }
 
     /**
-     * @return list<ComparisonSpecification>
+     * The raw leaves all bind through named placeholders and deliberately
+     * share `:price` — two of them under one AND, or one of them next to a
+     * comparison inside NOT/OR, exercise the placeholder remap that issues
+     * #30 and #31 found broken. Comparison leaves bind positionally at build
+     * time and never collide by name.
+     *
+     * @return list<Specification>
      */
     private static function leaves(): array
     {
         return [
+            new RawSpecification(condition: 'price > :price', params: [':price' => 20]),
+            new RawSpecification(condition: 'price < :price', params: [':price' => 40]),
+            new RawSpecification(condition: 'price BETWEEN :price AND :price_max', params: [':price' => 15, ':price_max' => 45]),
+            new RawSpecification(condition: 'status = :status', params: ['status' => 'active']),
             ComparisonSpecification::equal(column: 'status', value: 'active'),
             ComparisonSpecification::equal(column: 'status', value: 'inactive'),
             ComparisonSpecification::greaterThan(column: 'price', value: 20),
@@ -101,7 +114,7 @@ final class CompositionLawsPropertyTest
             leaf: Gen::elements(values: self::leaves()),
             wrap: static fn(ArbitraryInterface $inner): ArbitraryInterface => Gen::map(
                 inner: $inner,
-                map: static fn(ComparisonSpecification $spec): NotSpecification => NotSpecification::create(specification: $spec),
+                map: static fn(Specification $spec): NotSpecification => NotSpecification::create(specification: $spec),
             ),
             maxDepth: 1,
         );
@@ -132,7 +145,71 @@ final class CompositionLawsPropertyTest
             'none' => ComparisonSpecification::lessThan(column: 'id', value: 1), // []
             'notActive' => NotSpecification::create(specification: $active), // ids 3, 5
             'doubleNeg' => NotSpecification::create(specification: NotSpecification::create(specification: $active)), // ids 1, 2, 4
+            'rawAbove' => new RawSpecification(condition: 'price > :price', params: [':price' => 20]), // ids 3, 4, 5
+            'rawBelow' => new RawSpecification(condition: 'price < :price', params: [':price' => 40]), // ids 1, 2, 3
+            'rawRange' => new RawSpecification(condition: 'price BETWEEN :price AND :price_max', params: [':price' => 15, ':price_max' => 45]), // ids 2, 3, 4
         ];
+    }
+
+    /**
+     * An arbitrary AND/OR/NOT tree over {@see leaves()} for invariants that
+     * hold for every specification rather than for a law between two. Raw and
+     * comparison leaves are drawn with equal odds, and the root is always a
+     * combinator, so that two raw leaves sharing `:price` meet in one query
+     * often enough to gate on.
+     */
+    private static function tree(): ArbitraryInterface
+    {
+        $leaves = self::leaves();
+        $rawLeaves = array_values(array_filter($leaves, static fn(Specification $leaf): bool => $leaf instanceof RawSpecification));
+        $comparisonLeaves = array_values(array_filter($leaves, static fn(Specification $leaf): bool => !$leaf instanceof RawSpecification));
+        $leaf = Gen::frequency([[1, Gen::elements(values: $rawLeaves)], [1, Gen::elements(values: $comparisonLeaves)]]);
+
+        return self::combine(Gen::recursive(leaf: $leaf, wrap: self::combine(...), maxDepth: 2));
+    }
+
+    private static function combine(ArbitraryInterface $inner): ArbitraryInterface
+    {
+        return Gen::frequency([
+            [1, Gen::map(
+                inner: $inner,
+                map: static fn(Specification $spec): NotSpecification => NotSpecification::create(specification: $spec),
+            )],
+            [2, Gen::map(
+                inner: Gen::tuple($inner, $inner),
+                map: static fn(array $pair): CompositeSpecification => CompositeSpecification::create()
+                    ->withSpecification($pair[0])
+                    ->withSpecification($pair[1]),
+            )],
+            [2, Gen::map(
+                inner: Gen::tuple($inner, $inner),
+                map: static fn(array $pair): OrSpecification => OrSpecification::create($pair[0], $pair[1]),
+            )],
+        ]);
+    }
+
+    /**
+     * @return list<string> Every `:name` token in the string conditions of a WHERE tree.
+     */
+    private static function referencedPlaceholders(string|array|ExpressionInterface|null $where): array
+    {
+        if ($where === null || $where instanceof ExpressionInterface) {
+            return [];
+        }
+        if (is_string($where)) {
+            preg_match_all('/(?<![:\\w]):\\w+/', $where, $matches);
+
+            return $matches[0];
+        }
+
+        $placeholders = [];
+        foreach ($where as $part) {
+            if (is_string($part) || is_array($part) || $part instanceof ExpressionInterface) {
+                $placeholders = [...$placeholders, ...self::referencedPlaceholders($part)];
+            }
+        }
+
+        return $placeholders;
     }
 
     #[Property(runs: 150)]
@@ -163,6 +240,8 @@ final class CompositionLawsPropertyTest
         yield 'double negation' => [$c['doubleNeg'], $c['pricey']];
         yield 'disjoint (empty intersection)' => [$c['active'], $c['inactive']];
         yield 'universal vs empty' => [$c['all'], $c['none']];
+        yield 'raw leaves sharing :price (#31)' => [$c['rawAbove'], $c['rawBelow']];
+        yield 'raw :price next to raw :price/:price_max (#30)' => [$c['rawAbove'], $c['rawRange']];
     }
 
     #[Property(runs: 100)]
@@ -308,6 +387,8 @@ final class CompositionLawsPropertyTest
         yield 'both universal' => [$c['all'], $c['all']];
         yield 'NOT-wrapped both sides' => [$c['notActive'], $c['notActive']];
         yield 'double negation left' => [$c['doubleNeg'], $c['inactive']];
+        yield 'raw leaves sharing :price inside one NOT (#31)' => [$c['rawAbove'], $c['rawBelow']];
+        yield 'raw :price/:price_max under NOT next to raw :price (#30)' => [$c['rawRange'], $c['rawAbove']];
     }
 
     #[Property(runs: 150)]
@@ -370,5 +451,59 @@ final class CompositionLawsPropertyTest
         yield 'a empty (left factor empty)' => [$c['none'], $c['active'], $c['inactive']];
         yield 'b == c (a AND (b OR b) == a AND b)' => [$c['active'], $c['pricey'], $c['pricey']];
         yield 'NOT-wrapped a' => [$c['notActive'], $c['active'], $c['inactive']];
+    }
+
+    /**
+     * The invariant that found #30 downstream: whatever the tree, the set of
+     * placeholders the WHERE references is exactly the set of keys the query
+     * binds — a rename that misses a token, or a value overwritten by a
+     * sibling, shows up here as a dangling or an unreferenced name.
+     */
+    #[Property(runs: 300)]
+    public function everyReferencedPlaceholderIsBoundExactlyOnce(Specification $tree): void
+    {
+        $query = (new Query($this->db))->select('id')->from('items');
+        QueryApplier::apply(specification: $tree, query: $query);
+
+        $referenced = self::referencedPlaceholders($query->getWhere());
+        $bound = array_map(strval(...), array_keys($query->getParams()));
+        sort($referenced);
+        sort($bound);
+
+        Classify::cover(condition: $bound === [], label: 'no named placeholders', minPercent: 5);
+        Classify::cover(condition: in_array(needle: ':price_0', haystack: $bound, strict: true), label: 'collision renamed', minPercent: 15);
+        Classify::cover(condition: in_array(needle: ':price_max', haystack: $bound, strict: true), label: 'prefixed sibling present', minPercent: 15);
+
+        Assert::same(array_values(array_unique($referenced)), $bound);
+        $query->all();
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function everyReferencedPlaceholderIsBoundExactlyOnceGenerators(): array
+    {
+        return ['tree' => self::tree()];
+    }
+
+    /**
+     * @return iterable<array{0: Specification}>
+     */
+    public static function everyReferencedPlaceholderIsBoundExactlyOnceExamples(): iterable
+    {
+        $c = self::operandCatalog();
+
+        yield 'issue #30 repro' => [
+            CompositeSpecification::create()->withSpecification($c['rawAbove'])->withNot($c['rawRange']),
+        ];
+        yield 'issue #31 repro' => [
+            CompositeSpecification::create()->withSpecification($c['rawAbove'])->withSpecification($c['rawBelow']),
+        ];
+        yield 'twice-colliding leaf renamed in one pass' => [
+            CompositeSpecification::create()
+                ->withSpecification($c['rawAbove'])
+                ->withNot(CompositeSpecification::create()->withSpecification($c['rawAbove'])->withSpecification($c['rawBelow'])),
+        ];
+        yield 'no raw leaves at all' => [
+            CompositeSpecification::create()->withSpecification($c['active'])->withNot($c['pricey']),
+        ];
     }
 }
