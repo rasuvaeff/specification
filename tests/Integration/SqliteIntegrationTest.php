@@ -101,6 +101,19 @@ final class SqliteIntegrationTest
         Assert::same($this->ids($spec), [3, 5]);
     }
 
+    public function directNotSpecificationPreservesPagination(): void
+    {
+        $spec = CompositeSpecification::create()->withNot(
+            specification: CompositeSpecification::create()
+                ->withComparison(column: 'status', value: 'active')
+                ->withOrderBy(columns: ['price' => 'DESC'])
+                ->withLimit(limit: 1)
+                ->withOffset(offset: 1),
+        );
+
+        Assert::same($this->ids($spec), [3]);
+    }
+
     public function orBranchesIsolateParameters(): void
     {
         $spec = CompositeSpecification::create()->withSpecification(

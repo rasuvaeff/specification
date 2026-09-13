@@ -104,10 +104,12 @@ Building blocks for composing complex conditions:
 ```php
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LimitSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OffsetSpecification;
 use Rasuvaeff\Specification\OrConditionSpecification;
 use Rasuvaeff\Specification\OrSpecification;
+use Rasuvaeff\Specification\OrderBySpecification;
 use Rasuvaeff\Specification\RawSpecification;
 
 // AND conditions
@@ -145,6 +147,11 @@ $offset = CompositeSpecification::create()
 $rawComposite = CompositeSpecification::create()
     ->withRaw('price > :min AND price < :max', ['min' => 10, 'max' => 100]);
 ```
+
+`OrderBySpecification`, `LimitSpecification` and `OffsetSpecification` are the
+standalone query-modifier specifications used by `withOrderBy()`, `withLimit()`
+and `withOffset()`. Modifiers written inside an `OR` or `NOT` tree still apply
+to the complete query.
 
 ### ComparisonSpecification factory methods
 
@@ -295,12 +302,13 @@ Benchmarks live in `benchmarks/` and run via `composer bench` (requires
   equality — never a verbatim `IS 'value'`, which MySQL and PostgreSQL reject.
   A condition handed to `OrConditionSpecification` directly is normalized the
   same way only in its three-element `[operator, column, value]` form. Its
-  list-form operator must be one of the allow-listed comparison operators.
+  list-form operator must be one of the allow-listed comparison operators, and
+  canonical `LIKE` forms require a string pattern.
 - `orWhere()` and `notWhere()` callbacks may return the nested builder; doing so
   is required when the callback itself contains another `orWhere()` or
   `notWhere()`. `ORDER BY`, `LIMIT` and `OFFSET` are query-level modifiers and
-  apply to the complete OR expression, even when written before or inside the
-  callback.
+  apply to the complete OR/NOT expression, even when written before or inside
+  the callback (or nested directly in the specification tree).
 - `DateTimeInterface` values are rendered through `yiisoft/db`'s
   timezone-aware `DateTimeValue` with six fractional digits. The target column
   should support the resulting timezone-aware datetime representation.

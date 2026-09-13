@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.3 — 2026-09-13
 
 ### Fixed
 
@@ -15,6 +15,14 @@
   `DateTimeValue` with six-digit fractional precision.
 - Update the test adapter dependency to `rasuvaeff/property-testing-testo`
   `^0.10`.
+- Direct `NOT` specifications now preserve nested `ORDER BY`, `LIMIT` and
+  `OFFSET` modifiers, matching the existing `OR` behavior.
+- Canonical three-element `LIKE` conditions in `OrConditionSpecification` now
+  reject non-string patterns instead of passing malformed input to the query
+  builder.
+- Track `build/.gitkeep` so coverage and other build outputs have a directory
+  in fresh checkouts.
+- Document the public `OrderBySpecification` and `LimitSpecification` classes.
 
 ## 1.3.1 — 2026-09-13
 

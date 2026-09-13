@@ -116,6 +116,16 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
             throw new \InvalidArgumentException('NOT specification cannot be empty');
         }
 
+        if ($subQuery->getOrderBy() !== []) {
+            $this->query->addOrderBy(columns: $subQuery->getOrderBy());
+        }
+        if (($limit = $subQuery->getLimit()) !== null) {
+            $this->query->limit(limit: $limit);
+        }
+        if (($offset = $subQuery->getOffset()) !== null) {
+            $this->query->offset(offset: $offset);
+        }
+
         /** @var array<int<0, max>|non-empty-string, mixed> $subQueryParams */
         $subQueryParams = $subQuery->getParams();
         [$where, $params] = $this->remapConditionAndParams($where, $subQueryParams);
@@ -201,8 +211,13 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         if ($operator === 'is' || $operator === 'is not') {
             return [$operator === 'is' ? '=' : '!=', $column, $this->normalizeValue(value: $value)];
         }
-        if (!is_string(value: $value) || !in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
+        if (!in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
             return $this->normalizeCondition(condition: $condition);
+        }
+        if (!is_string(value: $value)) {
+            throw new \InvalidArgumentException(
+                message: sprintf('Operator "%s" requires string value', $operator),
+            );
         }
 
         return $this->likeCondition($operator, $column, $value, LikeMatch::Pattern);

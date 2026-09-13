@@ -104,10 +104,12 @@ $rows = $query->all();
 ```php
 use Rasuvaeff\Specification\ComparisonSpecification;
 use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\LimitSpecification;
 use Rasuvaeff\Specification\NotSpecification;
 use Rasuvaeff\Specification\OffsetSpecification;
 use Rasuvaeff\Specification\OrConditionSpecification;
 use Rasuvaeff\Specification\OrSpecification;
+use Rasuvaeff\Specification\OrderBySpecification;
 use Rasuvaeff\Specification\RawSpecification;
 
 // AND conditions
@@ -145,6 +147,11 @@ $offset = CompositeSpecification::create()
 $rawComposite = CompositeSpecification::create()
     ->withRaw('price > :min AND price < :max', ['min' => 10, 'max' => 100]);
 ```
+
+`OrderBySpecification`, `LimitSpecification` и `OffsetSpecification` —
+самостоятельные спецификации модификаторов запроса, которые используются
+методами `withOrderBy()`, `withLimit()` и `withOffset()`. Модификаторы,
+записанные внутри дерева `OR` или `NOT`, применяются ко всему запросу.
 
 ### Фабричные методы ComparisonSpecification
 
@@ -301,11 +308,13 @@ $spec = CompositeSpecification::create()
   и никогда — буквальным `IS 'value'`, которое MySQL и PostgreSQL отвергают.
   Условие, переданное в `OrConditionSpecification` напрямую, нормализуется так
   же только в трёхэлементной форме `[operator, column, value]`. Оператор в
-  списковой форме обязан быть в allow-list операторов сравнения.
+  списковой форме обязан быть в allow-list операторов сравнения, а каноническая
+  форма `LIKE` должна содержать строковый паттерн.
 - Колбэки `orWhere()` и `notWhere()` могут возвращать вложенный билдер; это
   обязательно, если внутри колбэка есть ещё один `orWhere()` или `notWhere()`.
   `ORDER BY`, `LIMIT` и `OFFSET` — модификаторы всего запроса: они применяются
-  ко всему OR-выражению, даже если записаны до колбэка или внутри него.
+  ко всему OR/NOT-выражению, даже если записаны до колбэка, внутри него или
+  непосредственно во вложенном дереве спецификаций.
 - Значения `DateTimeInterface` проходят через timezone-aware
   `DateTimeValue` из `yiisoft/db` с шестью знаками дробной секунды. Целевая
   колонка должна поддерживать получаемое представление даты со timezone.

@@ -84,7 +84,8 @@ SpecificationBuilder::create()
 
 ```php
 use Rasuvaeff\Specification\{CompositeSpecification, ComparisonSpecification,
-    OrSpecification, NotSpecification, RawSpecification};
+    OrSpecification, NotSpecification, RawSpecification, OrderBySpecification,
+    LimitSpecification};
 
 CompositeSpecification::create()                 // AND container
     ->withComparison('status','active')          // (col, value, operator='=')
@@ -100,6 +101,8 @@ CompositeSpecification::create()                 // AND container
 OrSpecification::create($specA, $specB, ...);    // OR of specs (isolated params)
 new NotSpecification($spec);
 new RawSpecification('price > :min', ['min' => 30]);  // value via params only
+new OrderBySpecification(['created_at' => 'DESC']);   // standalone ORDER BY
+new LimitSpecification(20);                           // standalone LIMIT
 new OffsetSpecification(40);                     // standalone offset
 ```
 
@@ -113,8 +116,10 @@ Valid operators: `= != <> > >= < <=  like not like ilike not ilike  in not in
 between not between  is is not`. Validation: NULL only with `= != <> is is not`;
 `in/not in/between/not between` require array (`between` is a zero-based list of
 exactly two values); LIKE ops require string. Direct list-form conditions in
-`OrConditionSpecification` reject unknown operators. `DateTimeInterface` values
-use yiisoft/db `DateTimeValue` with timezone and six fractional digits.
+`OrConditionSpecification` reject unknown operators and non-string canonical LIKE
+patterns. Modifiers in OR/NOT trees apply to the complete query.
+`DateTimeInterface` values use yiisoft/db `DateTimeValue` with timezone and six
+fractional digits.
 
 ## Performance
 
