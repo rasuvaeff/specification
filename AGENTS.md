@@ -54,10 +54,13 @@ Integration tests need no external DB — they use in-memory SQLite (the
   `SqliteIntegrationTest` guards — extend it for any change to OR/NOT/subquery
   handling, and run it.
 - `CompositeSpecification` composes with **AND**. For OR use `OrSpecification` or
-  `SpecificationBuilder::orWhere()`.
+  `SpecificationBuilder::orWhere()`. A callback that contains nested
+  `orWhere()`/`notWhere()` must return the nested builder. Query modifiers remain
+  outside OR branches.
 - `ComparisonSpecification` validates operators (whitelist) and value↔operator
   consistency (NULL only with `=,!=,<>,is,is not`; array ops require arrays;
-  `between` requires exactly two; LIKE ops require strings).
+  `between` requires a zero-based list of exactly two values; LIKE ops require
+  strings).
 - `ilike`/`not ilike` are `LIKE` with `caseSensitive: false` (`ILIKE` on
   PostgreSQL, plain `LIKE` elsewhere). `startsWith`/`endsWith`/`contains` carry
   a `LikeMatch` and hand a clean string to the builder, which escapes and adds

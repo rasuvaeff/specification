@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification;
 
+use InvalidArgumentException;
+
 /**
  * @implements Specification<mixed>
  * @api
@@ -20,7 +22,21 @@ final readonly class OrConditionSpecification implements Specification
     /**
      * @param list<array<array-key, mixed>> $conditions
      */
-    public function __construct(private array $conditions = []) {}
+    public function __construct(private array $conditions = [])
+    {
+        foreach ($conditions as $condition) {
+            if (!array_is_list(array: $condition) || $condition === [] || !is_string(value: $condition[0])) {
+                continue;
+            }
+
+            $operator = mb_strtolower(string: $condition[0]);
+            if (!in_array(needle: $operator, haystack: self::VALID_OPERATORS, strict: true)) {
+                throw new InvalidArgumentException(
+                    message: sprintf('Invalid OR condition operator "%s"', $condition[0]),
+                );
+            }
+        }
+    }
 
     /**
      * @template TVisitorReturn

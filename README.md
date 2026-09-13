@@ -228,6 +228,10 @@ composer install && php examples/builder.php
 
 - **Values are parameterized.** All comparison/IN/BETWEEN/LIKE values are bound
   as parameters by `yiisoft/db`, so they are safe against SQL injection.
+- **OR condition operators are allow-listed.** Direct
+  `OrConditionSpecification` conditions accept only the same canonical
+  operators as `ComparisonSpecification`; an unknown operator throws
+  `InvalidArgumentException` before query generation.
 - **Column names are not validated** — they are passed to `yiisoft/db` and quoted
   as identifiers, but there is no allow-list. Pass only **trusted** column names
   (typically hard-coded), never raw user input.
@@ -290,7 +294,16 @@ Benchmarks live in `benchmarks/` and run via `composer bench` (requires
   path: a `null` operand becomes `IS NULL` / `IS NOT NULL`, anything else a plain
   equality — never a verbatim `IS 'value'`, which MySQL and PostgreSQL reject.
   A condition handed to `OrConditionSpecification` directly is normalized the
-  same way only in its three-element `[operator, column, value]` form.
+  same way only in its three-element `[operator, column, value]` form. Its
+  list-form operator must be one of the allow-listed comparison operators.
+- `orWhere()` and `notWhere()` callbacks may return the nested builder; doing so
+  is required when the callback itself contains another `orWhere()` or
+  `notWhere()`. `ORDER BY`, `LIMIT` and `OFFSET` are query-level modifiers and
+  apply to the complete OR expression, even when written before or inside the
+  callback.
+- `DateTimeInterface` values are rendered through `yiisoft/db`'s
+  timezone-aware `DateTimeValue` with six fractional digits. The target column
+  should support the resulting timezone-aware datetime representation.
 
 ## License
 

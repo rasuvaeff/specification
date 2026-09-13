@@ -21,20 +21,11 @@ final class OrCompositionBench
 {
     #[Bench(
         callables: [
-            'direct' => [self::class, 'buildDirect'],
+            'builder' => [self::class, 'buildViaOrWhere'],
         ],
         calls: 1_000,
         iterations: 10,
     )]
-    public static function buildViaOrWhere(): CompositeSpecification
-    {
-        return SpecificationBuilder::create()
-            ->whereEqual('status', 'active')
-            ->orWhere(fn($b) => $b->whereEqual('status', 'pending'))
-            ->orWhere(fn($b) => $b->whereEqual('status', 'trial'))
-            ->build();
-    }
-
     public static function buildDirect(): CompositeSpecification
     {
         return CompositeSpecification::create()
@@ -46,5 +37,14 @@ final class OrCompositionBench
                 CompositeSpecification::create()
                     ->withComparison(column: 'status', value: 'trial', operator: '='),
             ));
+    }
+
+    public static function buildViaOrWhere(): CompositeSpecification
+    {
+        return SpecificationBuilder::create()
+            ->whereEqual('status', 'active')
+            ->orWhere(static fn(SpecificationBuilder $builder): SpecificationBuilder => $builder->whereEqual('status', 'pending'))
+            ->orWhere(static fn(SpecificationBuilder $builder): SpecificationBuilder => $builder->whereEqual('status', 'trial'))
+            ->build();
     }
 }

@@ -296,6 +296,52 @@ final class SpecificationBuilderTest
         Assert::count($orRight->getSpecifications(), 2);
     }
 
+    public function nestedOrWhereUsesReturnedBuilder(): void
+    {
+        $builder = SpecificationBuilder::create()->orWhere(
+            static fn(SpecificationBuilder $nested): SpecificationBuilder => $nested
+                ->whereEqual(column: 'status', value: 'active')
+                ->orWhere(
+                    static fn(SpecificationBuilder $deep): SpecificationBuilder => $deep->whereEqual(
+                        column: 'status',
+                        value: 'pending',
+                    ),
+                ),
+        );
+
+        $specifications = $builder->build()->getSpecifications();
+        Assert::count($specifications, 1);
+        /** @var CompositeSpecification $branch */
+        $branch = $specifications[0];
+        Assert::instanceOf($branch, CompositeSpecification::class);
+        $nested = $branch->getSpecifications()[0];
+        Assert::instanceOf($nested, OrSpecification::class);
+        /** @var OrSpecification $nested */
+        Assert::count($nested->getSpecifications(), 2);
+    }
+
+    public function nestedNotWhereUsesReturnedBuilder(): void
+    {
+        $builder = SpecificationBuilder::create()->notWhere(
+            static fn(SpecificationBuilder $nested): SpecificationBuilder => $nested
+                ->whereEqual(column: 'status', value: 'active')
+                ->orWhere(
+                    static fn(SpecificationBuilder $deep): SpecificationBuilder => $deep->whereEqual(
+                        column: 'status',
+                        value: 'pending',
+                    ),
+                ),
+        );
+
+        $specifications = $builder->build()->getSpecifications();
+        Assert::count($specifications, 1);
+        Assert::instanceOf($specifications[0], NotSpecification::class);
+        /** @var NotSpecification $not */
+        $not = $specifications[0];
+        $nested = $not->getSpecification()->getSpecifications()[0];
+        Assert::instanceOf($nested, OrSpecification::class);
+    }
+
     public function notWhere(): void
     {
         $builder = SpecificationBuilder::create()

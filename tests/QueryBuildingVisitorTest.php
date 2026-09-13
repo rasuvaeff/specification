@@ -26,6 +26,8 @@ use Testo\Codecov\Covers;
 use Testo\Data\DataProvider;
 use Testo\Expect;
 use Testo\Test;
+use Yiisoft\Db\Constant\ColumnType;
+use Yiisoft\Db\Expression\Value\DateTimeValue;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\QueryBuilder\Condition\LikeMode;
 
@@ -104,6 +106,20 @@ final class QueryBuildingVisitorTest
         $visitor->visitComparison(specification: $spec);
 
         Assert::same($query->getWhere(), ['!=', 'deleted_at', null]);
+    }
+
+    public function visitComparisonIsDateTimeValue(): void
+    {
+        $query = $this->makeQuery();
+        $dateTime = new DateTimeImmutable('2024-01-02 03:04:05.123456+03:00');
+        $spec = new ComparisonSpecification(column: 'created_at', value: $dateTime, operator: 'is');
+
+        $spec->accept(new QueryBuildingVisitor(query: $query));
+
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], '=');
+        Assert::instanceOf($where[2], DateTimeValue::class);
     }
 
     public function visitComposite(): void
@@ -502,14 +518,40 @@ final class QueryBuildingVisitorTest
     {
         $query = $this->makeQuery();
         $visitor = new QueryBuildingVisitor(query: $query);
+        $dateTime = new DateTimeImmutable('2024-01-02 03:04:05.123456+03:00');
         $spec = ComparisonSpecification::greaterThan(
             column: 'created_at',
-            value: new DateTimeImmutable('2024-01-02 03:04:05'),
+            value: $dateTime,
         );
 
         $visitor->visitComparison(specification: $spec);
 
-        Assert::same($query->getWhere(), ['>', 'created_at', '2024-01-02 03:04:05']);
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], '>');
+        Assert::same($where[1], 'created_at');
+        Assert::instanceOf($where[2], DateTimeValue::class);
+        /** @var DateTimeValue $value */
+        $value = $where[2];
+        Assert::same($value->value, $dateTime);
+        Assert::same($value->type, ColumnType::DATETIMETZ);
+        Assert::same($value->info, ['size' => 6]);
+    }
+
+    public function visitOrConditionDateTimeValue(): void
+    {
+        $query = $this->makeQuery();
+        $dateTime = new DateTimeImmutable('2024-01-02 03:04:05.123456+03:00');
+        $specification = new OrConditionSpecification([
+            ['=', 'created_at', $dateTime],
+        ]);
+
+        $specification->accept(new QueryBuildingVisitor(query: $query));
+
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], 'or');
+        Assert::instanceOf($where[1][2], DateTimeValue::class);
     }
 
     public function visitNotWithComparison(): void
@@ -719,7 +761,12 @@ final class QueryBuildingVisitorTest
         $spec = new ComparisonSpecification(column: 'date_col', value: [$dt1, $dt2], operator: 'in');
         $visitor->visitComparison(specification: $spec);
 
-        Assert::same($query->getWhere(), ['in', 'date_col', ['2024-01-01 00:00:00', '2024-06-01 00:00:00']]);
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], 'in');
+        Assert::same($where[1], 'date_col');
+        Assert::instanceOf($where[2][0], DateTimeValue::class);
+        Assert::instanceOf($where[2][1], DateTimeValue::class);
     }
 
     public function visitOrderByWithLowercaseDirectionStrings(): void
@@ -883,6 +930,41 @@ final class QueryBuildingVisitorTest
             'from' => Gen::int(),
             'to' => Gen::int(),
         ];
+    }
+
+    /**
+     * @return iterable<array{0: string, 1: int, 2: int}>
+     */
+    public static function betweenBuildsConditionWithBothBoundsExamples(): iterable
+    {
+        yield 'zero lower and upper bound' => ['price', 0, 0];
+        yield 'negative bounds' => ['price', -100, -1];
+        yield 'reversed bounds remain positional' => ['created_at', 20, 10];
+    }
+
+    #[Property(runs: 200)]
+    public function directOrConditionDateTimeIsNormalized(DateTimeImmutable $value): void
+    {
+        $query = $this->makeQuery();
+        (new OrConditionSpecification(conditions: [
+            ['=', 'created_at', $value],
+        ]))->accept(new QueryBuildingVisitor(query: $query));
+
+        $where = $query->getWhere();
+        Assert::true(is_array($where));
+        Assert::same($where[0], 'or');
+        Assert::instanceOf($where[1][2], DateTimeValue::class);
+        /** @var DateTimeValue $dateTimeValue */
+        $dateTimeValue = $where[1][2];
+        Assert::same($dateTimeValue->value, $value);
+        Assert::same($dateTimeValue->type, ColumnType::DATETIMETZ);
+        Assert::same($dateTimeValue->info, ['size' => 6]);
+    }
+
+    /** @return array<string, ArbitraryInterface> */
+    public static function directOrConditionDateTimeIsNormalizedGenerators(): array
+    {
+        return ['value' => Gen::datetime()];
     }
 
     #[Property(runs: 300)]

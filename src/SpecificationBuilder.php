@@ -127,20 +127,54 @@ final class SpecificationBuilder
     public function orWhere(callable $callback): self
     {
         $builder = new self(mutable: true);
-        $callback($builder);
-
-        $newBuilder = clone $this;
-        $built = $builder->build();
-
-        $existingSpecifications = $this->specification->getSpecifications();
-        $orSpecifications = [$this->specification, $built];
-
-        if (count($existingSpecifications) === 1 && $existingSpecifications[0] instanceof OrSpecification) {
-            $orSpecifications = [...$existingSpecifications[0]->getSpecifications(), $built];
+        $callbackResult = $callback($builder);
+        if ($callbackResult instanceof self) {
+            $builder = $callbackResult;
         }
 
-        $newBuilder->specification = CompositeSpecification::create()
-            ->withSpecification(specification: OrSpecification::create(...$orSpecifications));
+        $newBuilder = clone $this;
+        [$existingConditions, $existingModifiers] = $this->splitModifiers(specification: $this->specification);
+        [$callbackConditions, $callbackModifiers] = $this->splitModifiers(specification: $builder->build());
+
+        /** @var list<Specification> $orSpecifications */
+        $orSpecifications = [];
+        $callbackBranch = $callbackConditions === []
+            ? null
+            : new CompositeSpecification(specifications: $callbackConditions);
+        if ($existingConditions !== []) {
+            if (
+                count($existingConditions) === 1
+                && $existingConditions[0] instanceof OrSpecification
+                && $callbackBranch instanceof CompositeSpecification
+            ) {
+                foreach ($existingConditions[0]->getSpecifications() as $existingSpecification) {
+                    $orSpecifications[] = $existingSpecification;
+                }
+                $orSpecifications[] = $callbackBranch;
+            } else {
+                $orSpecifications[] = new CompositeSpecification(specifications: $existingConditions);
+                if ($callbackBranch instanceof CompositeSpecification) {
+                    $orSpecifications[] = $callbackBranch;
+                }
+            }
+        } elseif ($callbackBranch instanceof CompositeSpecification) {
+            $orSpecifications[] = $callbackBranch;
+        }
+
+        $newBuilder->specification = CompositeSpecification::create();
+        if (count($orSpecifications) === 1) {
+            foreach ($orSpecifications as $singleSpecification) {
+                $newBuilder->specification = $newBuilder->specification->withSpecification(specification: $singleSpecification);
+            }
+        } elseif ($orSpecifications !== []) {
+            $newBuilder->specification = $newBuilder->specification->withSpecification(
+                specification: OrSpecification::create(...$orSpecifications),
+            );
+        }
+
+        foreach ([...$existingModifiers, ...$callbackModifiers] as $modifier) {
+            $newBuilder->specification = $newBuilder->specification->withSpecification(specification: $modifier);
+        }
 
         return $newBuilder;
     }
@@ -151,10 +185,19 @@ final class SpecificationBuilder
     public function notWhere(callable $callback): self
     {
         $builder = new self(mutable: true);
-        $callback($builder);
+        $callbackResult = $callback($builder);
+        if ($callbackResult instanceof self) {
+            $builder = $callbackResult;
+        }
 
         $newBuilder = clone $this;
-        $newBuilder->specification = $newBuilder->specification->withNot(specification: $builder->build());
+        [$callbackConditions, $callbackModifiers] = $this->splitModifiers(specification: $builder->build());
+        $newBuilder->specification = $newBuilder->specification->withNot(
+            specification: new CompositeSpecification(specifications: $callbackConditions),
+        );
+        foreach ($callbackModifiers as $modifier) {
+            $newBuilder->specification = $newBuilder->specification->withSpecification(specification: $modifier);
+        }
 
         return $newBuilder;
     }
@@ -194,5 +237,28 @@ final class SpecificationBuilder
     public static function create(): self
     {
         return new self();
+    }
+
+    /**
+     * @return array{list<Specification>, list<Specification>}
+     */
+    private function splitModifiers(CompositeSpecification $specification): array
+    {
+        $conditions = [];
+        $modifiers = [];
+
+        foreach ($specification->getSpecifications() as $childSpecification) {
+            if (
+                $childSpecification instanceof OrderBySpecification
+                || $childSpecification instanceof LimitSpecification
+                || $childSpecification instanceof OffsetSpecification
+            ) {
+                $modifiers[] = $childSpecification;
+            } else {
+                $conditions[] = $childSpecification;
+            }
+        }
+
+        return [$conditions, $modifiers];
     }
 }

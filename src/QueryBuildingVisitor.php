@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Specification;
 
+use Yiisoft\Db\Constant\ColumnType;
 use Yiisoft\Db\Expression\ExpressionInterface;
+use Yiisoft\Db\Expression\Value\DateTimeValue;
 use Yiisoft\Db\Query\QueryInterface;
 use Yiisoft\Db\QueryBuilder\Condition\LikeMode;
 
@@ -29,7 +31,7 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
             case 'between':
             case 'not between':
                 $value = $specification->getValue();
-                if (!is_array(value: $value) || count(value: $value) !== 2) {
+                if (!is_array(value: $value) || !array_is_list(array: $value) || count(value: $value) !== 2) {
                     throw new \InvalidArgumentException(
                         message: sprintf('%s operator requires array with exactly two values', strtoupper(string: $operator)),
                     );
@@ -53,7 +55,7 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
                 $this->query->andWhere([
                     $operator === 'is' ? '=' : '!=',
                     $specification->getColumn(),
-                    $specification->getValue(),
+                    $this->normalizeValue(value: $specification->getValue()),
                 ]);
                 break;
 
@@ -74,7 +76,13 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
     private function normalizeValue(mixed $value): mixed
     {
         if ($value instanceof \DateTimeInterface) {
-            return $value->format('Y-m-d H:i:s');
+            return new DateTimeValue(value: $value, type: ColumnType::DATETIMETZ, info: ['size' => 6]);
+        }
+
+        if (is_array(value: $value)) {
+            foreach ($value as $key => $nestedValue) {
+                $value[$key] = $this->normalizeValue(value: $nestedValue);
+            }
         }
 
         return $value;
@@ -126,6 +134,16 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
             $visitor = new self($subQuery);
             $childSpecification->accept($visitor);
 
+            if ($subQuery->getOrderBy() !== []) {
+                $this->query->addOrderBy($subQuery->getOrderBy());
+            }
+            if (($limit = $subQuery->getLimit()) !== null) {
+                $this->query->limit($limit);
+            }
+            if (($offset = $subQuery->getOffset()) !== null) {
+                $this->query->offset($offset);
+            }
+
             $where = $subQuery->getWhere();
             if ($where === null) {
                 continue;
@@ -173,21 +191,34 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
     private function normalizeOrCondition(array $condition): array
     {
         if (!array_is_list(array: $condition) || count(value: $condition) !== 3) {
-            return $condition;
+            return $this->normalizeCondition(condition: $condition);
         }
         [$operator, $column, $value] = $condition;
         if (!is_string(value: $operator) || !is_string(value: $column)) {
-            return $condition;
+            return $this->normalizeCondition(condition: $condition);
         }
         $operator = mb_strtolower(string: $operator);
         if ($operator === 'is' || $operator === 'is not') {
-            return [$operator === 'is' ? '=' : '!=', $column, $value];
+            return [$operator === 'is' ? '=' : '!=', $column, $this->normalizeValue(value: $value)];
         }
         if (!is_string(value: $value) || !in_array(needle: $operator, haystack: self::LIKE_OPERATORS, strict: true)) {
-            return $condition;
+            return $this->normalizeCondition(condition: $condition);
         }
 
         return $this->likeCondition($operator, $column, $value, LikeMatch::Pattern);
+    }
+
+    /**
+     * @param array<array-key, mixed> $condition
+     * @return array<array-key, mixed>
+     */
+    private function normalizeCondition(array $condition): array
+    {
+        foreach ($condition as $key => $value) {
+            $condition[$key] = $this->normalizeValue(value: $value);
+        }
+
+        return $condition;
     }
 
     /**
@@ -368,6 +399,9 @@ final readonly class QueryBuildingVisitor implements SpecificationVisitor
         $subQuery = clone $this->query;
         $subQuery->setWhere(null);
         $subQuery->params([]);
+        $subQuery->orderBy([]);
+        $subQuery->limit(null);
+        $subQuery->offset(null);
 
         return $subQuery;
     }
