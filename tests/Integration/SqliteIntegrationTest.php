@@ -325,6 +325,25 @@ final class SqliteIntegrationTest
         Assert::same($this->ids($or), [5, 6, 7]);
     }
 
+    /**
+     * SQLite reads `IS 'pending'` as null-safe equality, so a verbatim `is`
+     * passes here while MySQL and PostgreSQL reject it (#34). The SQL is
+     * asserted, not only the rows: the rows would be the same either way.
+     */
+    public function orConditionIsRendersAsEquality(): void
+    {
+        $spec = CompositeSpecification::create()
+            ->withOrCondition(conditions: ['status' => ['is', 'pending'], 'name' => ['is not', null]]);
+
+        $query = (new Query($this->db))->from('items');
+        QueryApplier::apply(specification: $spec, query: $query);
+        $sql = $query->createCommand()->getRawSql();
+
+        Assert::string($sql)->contains('"status" = \'pending\'')->contains('"name" IS NOT NULL');
+        Assert::string($sql)->notContains(' IS \'');
+        Assert::same($this->ids($spec), [1, 2, 3, 4, 5]);
+    }
+
     public function orConditionLikeSendsThePatternVerbatim(): void
     {
         $this->db->createCommand()->insert('items', ['id' => 6, 'name' => 'Alpha%Beta', 'status' => 'active', 'price' => 60, 'created_at' => '2024-06-01'])->execute();
