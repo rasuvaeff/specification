@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.0 — 2026-10-17
+
+- **Added.** `InMemorySpecification::satisfies(Specification $specification,
+  array $row): bool` — an in-memory interpreter for a specification (#40): a
+  rule written once as a specification holds both in a query (the existing
+  `QueryApplier`) and on a single row the read model already holds.
+  Comparisons (`=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `in`, `not in`,
+  `between`, `not between`, `is` / `is not` null) and AND, OR, NOT are
+  supported; ordering, LIMIT and OFFSET are ignored (they do not filter).
+  Verdicts are the SQL the package actually builds, guarded by a property
+  test against real SQLite: type coercion as SQL compares (`'1'` against `1`
+  agrees), a NULL row value is UNKNOWN and `NOT` of it stays unknown
+  (three-valued logic), a NULL entry in an `in`/`not in` list is yiisoft/db's
+  `IS NULL` / `IS NOT NULL` rendering, an empty `in` is `0=1` and an empty
+  `not in` adds no condition. The `like` family, date values, raw SQL and raw
+  OR conditions are refused with a `LogicException` naming what — as is a
+  non-numeric string against a number, where SQL engines disagree on the
+  coercion.
+
 ## 1.3.3 — 2026-09-13
 
 ### Fixed
