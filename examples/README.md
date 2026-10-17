@@ -18,3 +18,4 @@ php examples/or-not-raw.php
 ```
 
 `_bootstrap.php` builds and seeds the sample `items` table shared by both.
+| `in_memory.php` | `InMemorySpecification::satisfies()`: one rule answered in memory and by SQL, and the NULL/three-valued-logic shapes. |

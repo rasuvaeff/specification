@@ -222,6 +222,36 @@ final class CountingVisitor implements SpecificationVisitor
 }
 ```
 
+### In-memory evaluation: `InMemorySpecification`
+
+A rule written once as a specification can hold in both places it is needed:
+on an object in memory (the aggregate refuses) and in a query (the read model
+lists). `InMemorySpecification::satisfies()` evaluates the same specification
+against a single row — a column => value map the read model already holds:
+
+```php
+use Rasuvaeff\Specification\InMemorySpecification;
+
+$holds = InMemorySpecification::satisfies(
+    specification: CompositeSpecification::create(...)->withComparison('status', 'active')->withComparison('price', 25, '>'),
+    row: $seat->toArray(),
+);
+```
+
+Supported: the comparison operators (`=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`,
+`in`, `not in`, `between`, `not between`, `is` / `is not` null) and AND, OR,
+NOT. Ordering, LIMIT and OFFSET do not filter and are ignored. The verdict is
+the SQL one, verified against real SQLite by a property test:
+
+| Shape | Reading |
+|---|---|
+| `'1'` column against `1` | SQL compares after type coercion, and so does the interpreter — they agree |
+| a non-numeric string against a number | **Refused** (`LogicException`): SQLite and MySQL disagree on this coercion |
+| NULL row value under a comparison | UNKNOWN, like SQL's NULL — the row is not kept, and `NOT` of it stays unknown |
+| a NULL entry in an `in`/`not in` list | what yiisoft/db renders: `IS NULL` beside the equality arms for `in`, `IS NOT NULL` for `not in` |
+| `like` family, date values | **Refused** (`LogicException`) — SQL renders dates time-zone aware; no string form reads back the same on every engine |
+| raw SQL, raw OR conditions | **Refused** (`LogicException`) — there is nothing to name in memory |
+
 ## Examples
 
 Runnable, offline examples (in-memory SQLite) live in [`examples/`](examples/):

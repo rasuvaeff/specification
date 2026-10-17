@@ -223,6 +223,37 @@ final class CountingVisitor implements SpecificationVisitor
 }
 ```
 
+### Вычисление в памяти: `InMemorySpecification`
+
+Правило, написанное один раз как спецификация, может действовать в обоих
+местах, где оно нужно: на объекте в памяти (агрегат отказывает) и в запросе
+(read model строит список). `InMemorySpecification::satisfies()` вычисляет ту
+же спецификацию для одной строки — map «колонка => значение», которую read
+model уже держит:
+
+```php
+use Rasuvaeff\Specification\InMemorySpecification;
+
+$holds = InMemorySpecification::satisfies(
+    specification: CompositeSpecification::create(...)->withComparison('status', 'active')->withComparison('price', 25, '>'),
+    row: $seat->toArray(),
+);
+```
+
+Поддерживаются операторы сравнения (`=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`,
+`in`, `not in`, `between`, `not between`, `is` / `is not` null) и AND, OR,
+NOT. Сортировка, LIMIT и OFFSET ничего не фильтруют и игнорируются. Вердикт —
+SQL-ный, сверен с настоящим SQLite property-тестом:
+
+| Форма | Чтение |
+|---|---|
+| колонка `'1'` против `1` | SQL сравнивает после коэрсии типов — интерпретатор тоже, они согласны |
+| нечисловая строка против числа | **Отказ** (`LogicException`): SQLite и MySQL расходятся в этой коэрсии |
+| NULL в значении строки под сравнением | UNKNOWN, как SQL NULL, — строка не выбирается, и `NOT` от него остаётся unknown |
+| NULL в списке `in`/`not in` | как рендерит yiisoft/db: `IS NULL` рядом с ветками равенства для `in`, `IS NOT NULL` для `not in` |
+| `like`-семейство, значения-даты | **Отказ** (`LogicException`) — SQL рендерит даты с учётом таймзон; строковой формы, одинаково читаемой всеми движками, нет |
+| raw SQL, raw OR-условия | **Отказ** (`LogicException`) — в памяти нечего именовать |
+
 ## Примеры
 
 Запускаемые офлайн-примеры (in-memory SQLite) лежат в [`examples/`](examples/):

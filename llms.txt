@@ -134,3 +134,32 @@ Implement `SpecificationVisitor<T>` (visitComparison/visitComposite/visitNot/
 visitOr/visitOrCondition/visitRaw/visitOrderBy/visitLimit/visitOffset) and call
 `$spec->accept($visitor)`. `QueryBuildingVisitor` is the built-in one used by
 `QueryApplier`.
+
+## In-memory evaluation
+
+`InMemorySpecification::satisfies(Specification $spec, array $row): bool` —
+the same specification the SQL side renders, answered for one row
+(column => value map):
+
+```php
+use Rasuvaeff\Specification\CompositeSpecification;
+use Rasuvaeff\Specification\InMemorySpecification;
+
+$rule = CompositeSpecification::create()
+    ->withComparison('status', 'active')
+    ->withComparison('price', 25, '>');
+
+$holds = InMemorySpecification::satisfies(specification: $rule, row: $row);
+```
+
+- Operators: `=`, `!=`, `<>`, `<`, `<=`, `>`, `>=`, `in`, `not in`,
+  `between`, `not between`, `is`/`is not` null; AND, OR, NOT; order/limit/
+  offset ignored (they do not filter).
+- Verdicts are SQL's, verified against real SQLite by a property test:
+  type coercion as SQL compares ('1' against 1 agrees); a NULL row value is
+  UNKNOWN (NOT of it stays unknown); a NULL entry in an in/not-in list is
+  yiisoft/db's IS NULL / IS NOT NULL rendering; empty `in` is `0=1`, empty
+  `not in` adds no condition.
+- Refused with LogicException: like family, DateTimeInterface values, raw
+  SQL, raw OR conditions, a column missing from the row, a non-numeric
+  string against a number (engines disagree on that coercion).
