@@ -44,7 +44,7 @@
         "testo/bench": "^0.1.5",
         "testo/bridge-infection": "^0.1.6",
         "testo/testo": "^0.10.25",
-        "vimeo/psalm": "^6.16",
+        "vimeo/psalm": "^7.0",
         "yiisoft/cache": "^3.0",
         "yiisoft/db-sqlite": "^2.0",
         "yiisoft/dummy-provider": "^1.1"
